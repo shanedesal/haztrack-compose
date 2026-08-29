@@ -1,0 +1,12 @@
+naming:
+  FunctionNaming:
+    active: true
+    ignoreAnnotated:
+      - Composable
+
+complexity:
+  LongMethod:
+    active: true
+    allowedLines: 60
+    ignoreAnnotated: 
+      - Composable

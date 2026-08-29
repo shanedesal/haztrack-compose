@@ -1,0 +1,14 @@
+---
+description: Require Timber logging for domain and data layer feature work
+globs: app/src/main/java/**/domain/**/*.kt, app/src/main/java/**/data/**/*.kt
+alwaysApply: false
+---
+
+# Domain and Data Layer Logging
+
+- When adding or modifying a feature in the domain or data layer, add meaningful logs using `Timber`; do not use `println`, `System.out`, or direct Android `Log` calls.
+- Log important operation boundaries and outcomes, including requests or use-case starts, successful completion when useful for tracing, and failures with the exception.
+- Use log levels intentionally: `Timber.d` or `Timber.i` for traceable flow, `Timber.w` for recoverable or unexpected conditions, and `Timber.e(exception, ...)` for failures.
+- Keep messages consistent and searchable by naming the operation or feature, for example: `Timber.d("SignInWithEmail started")`.
+- Never log passwords, tokens, credentials, full user data, sensitive identifiers, or other secrets. Log only the minimum non-sensitive context needed to trace behavior.
+- Preserve the original exception when logging and rethrowing or mapping errors so failures remain diagnosable.
