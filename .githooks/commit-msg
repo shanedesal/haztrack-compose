@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+commit_message_file="${1:?Commit message file is required}"
+IFS= read -r subject < "$commit_message_file" || true
+subject="${subject%$'\r'}"
+
+conventional_commit_regex='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([[:alnum:]_.\/-]+\))?(!)?: .+'
+
+if [[ ! "$subject" =~ $conventional_commit_regex ]]; then
+    cat >&2 <<'EOF'
+Invalid commit message.
+
+Use Conventional Commits:
+  <type>: <description>
+  <type>(<scope>): <description>
+
+Allowed types: build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test
+Example: feat: add hazard tracking
+EOF
+    exit 1
+fi
