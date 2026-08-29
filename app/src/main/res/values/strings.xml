@@ -1,3 +1,52 @@
 <resources>
     <string name="app_name">haztrack</string>
+
+    <!-- Shared auth -->
+    <string name="auth_or_divider">OR</string>
+    <string name="auth_continue_with_google">Continue with Google</string>
+    <string name="auth_google_logo_content_description">Google logo</string>
+    <string name="auth_toggle_password_visibility">Toggle password visibility</string>
+    <string name="auth_navigate_back">Back</string>
+    <string name="auth_error_invalid_input">Please check your email and password and try again.</string>
+    <string name="auth_error_weak_password">Your password is too weak. Use at least 6 characters.</string>
+    <string name="auth_error_invalid_credentials">Incorrect email or password.</string>
+    <string name="auth_error_account_exists">An account with this email already exists.</string>
+    <string name="auth_error_no_account">No account found with this email.</string>
+    <string name="auth_error_network">Network error. Check your connection and try again.</string>
+    <string name="auth_error_generic">Something went wrong. Please try again.</string>
+
+            <!-- Login -->
+    <string name="login_title">Welcome back</string>
+    <string name="login_subtitle">Sign in to continue to Haztrack</string>
+    <string name="login_email_label">Email</string>
+    <string name="login_password_label">Password</string>
+    <string name="login_forgot_password">Forgot password?</string>
+    <string name="login_sign_in_button">Sign in</string>
+    <string name="login_no_account_prompt">Don\'t have an account?</string>
+    <string name="login_sign_up_link">Sign up</string>
+
+    <!-- Register -->
+    <string name="register_title">Create account</string>
+    <string name="register_subtitle">Sign up to get started with Haztrack</string>
+    <string name="register_email_label">Email</string>
+    <string name="register_password_label">Password</string>
+    <string name="register_password_hint">Must be at least 6 characters</string>
+    <string name="register_confirm_password_label">Confirm password</string>
+    <string name="register_sign_up_button">Create account</string>
+    <string name="register_has_account_prompt">Already have an account?</string>
+    <string name="register_sign_in_link">Sign in</string>
+    <string name="register_error_password_mismatch">Passwords do not match.</string>
+
+    <!-- Forgot password -->
+    <string name="forgot_password_title">Reset your password</string>
+    <string name="forgot_password_subtitle">Enter the email associated with your account and we\'ll send you a reset link.</string>
+    <string name="forgot_password_email_label">Email</string>
+    <string name="forgot_password_send_button">Send reset link</string>
+    <string name="forgot_password_success_message">Password reset email sent. Check your inbox.</string>
+    <string name="forgot_password_back_to_login">Back to sign in</string>
+
+    <!-- Home -->
+    <string name="home_welcome_title">Welcome</string>
+    <string name="home_welcome_message">You\'re signed in as %1$s</string>
+    <string name="home_sign_out_button">Sign out</string>
 </resources>
