@@ -1,0 +1,12 @@
+---
+description: Keep Android user-facing strings in strings.xml for reuse and easier debugging
+globs: **/*.kt, **/res/values/strings.xml
+alwaysApply: false
+---
+
+# Android String Resources
+
+- Declare every new user-facing string, including button labels, titles, messages, and descriptions, in `res/values/strings.xml`.
+- In Jetpack Compose, reference these resources with `stringResource(R.string.<name>)` instead of hardcoding the text in Kotlin.
+- Use descriptive `snake_case` resource names and add format placeholders to the resource when a string contains dynamic values.
+- Do not extract non-user-facing technical values or genuinely dynamic content into string resources.

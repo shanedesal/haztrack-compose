@@ -1,0 +1,15 @@
+---
+description: Enforce the app's Compose, MVVM, dependency injection, and configuration architecture
+alwaysApply: true
+---
+
+# Android Architecture
+
+- Use Jetpack Compose for UI and follow MVVM with clear separation of concerns.
+- Keep composables focused on rendering and user events; place business logic and screen state management in `ViewModel`s.
+- Keep data access behind repositories and data sources. Do not let composables or view models call network/database implementations directly.
+- Use Hilt for dependency injection. Prefer constructor injection and Hilt modules; avoid service locators and manually managed global singletons.
+- Prefer modern Android APIs and Kotlin coroutines/`Flow` or `StateFlow`. Avoid legacy APIs such as `LiveData` unless there is no suitable alternative; document the exception.
+- Keep one-way data flow: expose immutable UI state, send user actions to the view model, and collect state from Compose with lifecycle awareness.
+- Never hardcode API keys, tokens, credentials, or environment-specific backend endpoints in source code. Read them from Gradle configuration backed by `local.properties` for local development and CI-provided secrets for builds, expose only the required values through `BuildConfig`, and keep secret files out of version control.
+- Remember that values bundled into a client application are recoverable; do not treat `BuildConfig` as a secure vault. Sensitive operations and secrets belong on the backend.
