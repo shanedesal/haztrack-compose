@@ -1,0 +1,14 @@
+---
+description: Centralize Compose theme and color usage with Material 3
+globs: app/src/main/**/*.kt
+alwaysApply: false
+---
+
+# Compose Theme and Colors
+
+- Use Jetpack Compose Material 3 for UI components and theming.
+- Define the app’s shared color palette and light/dark `ColorScheme`s in `colors.kt`; keep theme configuration centralized in the theme package.
+- Use semantic color names and Material 3 color roles rather than screen-specific or component-specific color constants.
+- Access colors throughout the UI through `MaterialTheme.colorScheme` (for example, `MaterialTheme.colorScheme.primary`).
+- Do not hardcode `Color(...)` values or hex colors inside composables, screens, or reusable UI components. Add new reusable colors to `colors.kt`.
+- Keep light and dark theme behavior consistent, and verify that custom colors provide sufficient contrast for their intended content.
