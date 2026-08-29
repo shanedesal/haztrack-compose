@@ -1,0 +1,22 @@
+---
+description: Research stable dependency versions and preserve project-wide compatibility
+globs: "**/*.gradle, **/*.gradle.kts, gradle/libs.versions.toml"
+alwaysApply: false
+---
+
+# Dependency Version Research
+
+- Before adding or updating a dependency, inspect the existing versions and aliases in
+  `gradle/libs.versions.toml` and the relevant build files.
+- Check the dependency's official repository or documentation online for the latest
+  stable release at the time of the change. Do not rely on memory or cached knowledge.
+- Prefer stable releases; do not choose alpha, beta, RC, snapshot, or dynamic versions
+  unless the user explicitly requests one.
+- Reuse an existing alias or version when it refers to the same dependency. Avoid
+  duplicate aliases, conflicting versions, and unnecessary upgrades of existing entries.
+- Check compatibility with the project's Kotlin, Android Gradle Plugin, Gradle, compile
+  SDK, and related libraries. Respect BOM-managed versions where applicable.
+- When a version catalog exists, add the dependency and its pinned version there, then
+  reference the catalog alias from module build files.
+- In the final summary, state the selected version, its online source, and the date it
+  was verified.
