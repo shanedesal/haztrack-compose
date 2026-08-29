@@ -83,4 +83,4 @@ fi
 echo "Secret scanning passed."
 
 echo "Running Detekt..."
-./gradlew detekt --stacktrace
+./gradlew detekt
