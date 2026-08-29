@@ -1,0 +1,12 @@
+---
+description: Remind users to run builds and lint checks themselves
+alwaysApply: true
+---
+
+# Build and Lint Workflow
+
+- For every code addition or modification, do not run lint, static-analysis, or build tasks automatically.
+- After code generation, remind the user to build the app with `./gradlew assembleDebug`.
+- Treat `assembleDebug` as a build check only; it does not replace lint or static analysis.
+- At the end of the work, remind the user to run the appropriate lint checks, such as `./gradlew detekt`, and any other project-specific checks required by their workflow.
+- Do not claim that the build or lint checks passed unless the user runs them.
