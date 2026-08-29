@@ -13,3 +13,16 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Local secrets and service credentials
+google-services.json
+GoogleService-Info.plist
+.env
+.env.*
+secrets.properties
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore

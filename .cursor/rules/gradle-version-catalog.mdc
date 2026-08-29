@@ -1,0 +1,14 @@
+---
+description: Require all Gradle dependencies to use the centralized version catalog
+globs: gradle/libs.versions.toml, **/*.gradle.kts
+alwaysApply: false
+---
+
+# Gradle Dependency Management
+
+- Add every external dependency to `gradle/libs.versions.toml` before using it in a module.
+- Declare its version in `[versions]` and its library coordinates in `[libraries]`; reuse an existing version when appropriate.
+- In `app/build.gradle.kts` and other module build scripts, reference catalog aliases through `libs.<alias>` (for example, `implementation(libs.androidx.core.ktx)`).
+- Declare plugins in the catalog’s `[plugins]` section and apply them with `alias(libs.plugins.<alias>)` when they are used by a module.
+- Do not put dependency versions, coordinates, or plugin versions directly in `build.gradle.kts`.
+- Check the catalog for an existing alias before adding a new one, use consistent alias naming, and avoid dynamic or unpinned versions.

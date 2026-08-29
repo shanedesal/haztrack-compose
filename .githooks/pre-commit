@@ -4,5 +4,83 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
+echo "Scanning staged files for secrets..."
+
+blocked_file_patterns=(
+    'google-services.json'
+    'GoogleService-Info.plist'
+    '.env'
+    '.env.*'
+    'local.properties'
+    'secrets.properties'
+    '*.pem'
+    '*.key'
+    '*.p12'
+    '*.pfx'
+    '*.jks'
+    '*.keystore'
+    'service-account*.json'
+    'firebase-adminsdk*.json'
+    'credentials*.json'
+    '*secret*.json'
+)
+
+secret_patterns=(
+    'AKIA[0-9A-Z]{16}'
+    'AIza[0-9A-Za-z_-]{35}'
+    'gh[pousr]_[A-Za-z0-9_]{20,}'
+    'github_pat_[A-Za-z0-9_]{20,}'
+    'xox[baprs]-[0-9A-Za-z-]{10,}'
+    '-----BEGIN ([A-Z ]+ )?PRIVATE KEY-----'
+    '(^|[^A-Za-z])(api[_-]?key|client[_-]?secret|password|passwd|secret|token)[[:space:]]*=[[:space:]]*["'\''][^"'\'']{8,}["'\'']'
+)
+
+blocked_files=()
+secret_hits=()
+
+while IFS= read -r -d '' staged_file; do
+    file_name="${staged_file##*/}"
+
+    for pattern in "${blocked_file_patterns[@]}"; do
+        if [[ "$file_name" == $pattern || "$staged_file" == $pattern ]]; then
+            blocked_files+=("$staged_file")
+            break
+        fi
+    done
+
+    line_number=0
+    while IFS= read -r staged_line; do
+        ((line_number += 1))
+        for pattern in "${secret_patterns[@]}"; do
+            if [[ "$staged_line" =~ $pattern ]]; then
+                secret_hits+=("$staged_file:$line_number")
+                break
+            fi
+        done
+    done < <(git show ":$staged_file")
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+if (( ${#blocked_files[@]} > 0 || ${#secret_hits[@]} > 0 )); then
+    echo "Secret scanning failed. Remove sensitive data from the staged changes:" >&2
+
+    if (( ${#blocked_files[@]} > 0 )); then
+        echo >&2
+        echo "Blocked files:" >&2
+        printf '  %s\n' "${blocked_files[@]}" >&2
+    fi
+
+    if (( ${#secret_hits[@]} > 0 )); then
+        echo >&2
+        echo "Potential secrets:" >&2
+        printf '  %s\n' "${secret_hits[@]}" >&2
+    fi
+
+    echo >&2
+    echo "Unstage the files or replace the secrets before committing." >&2
+    exit 1
+fi
+
+echo "Secret scanning passed."
+
 echo "Running Detekt..."
 ./gradlew detekt --stacktrace
