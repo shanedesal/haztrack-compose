@@ -1,0 +1,13 @@
+---
+description: Require feature and bug-fix documentation to stay current
+alwaysApply: true
+---
+
+# Feature Change Documentation
+
+- Document every feature addition, feature update, bug fix, and functionality change in `docs/changelog.md` at the repository root.
+- Add each changelog entry with the date, change type, a concise summary, and any relevant user or developer impact.
+- When a feature or existing behavior changes, update `docs/docs.md` in the same change so its descriptions, examples, navigation, and current-state notes remain accurate.
+- Keep `docs/docs.md` aligned with the implemented behavior; do not leave documentation describing removed, renamed, or obsolete functionality.
+- Create `docs/changelog.md` if it does not exist, and preserve the existing entry format when adding to it.
+- Treat documentation updates as part of the feature, fix, or functionality change rather than as optional follow-up work.
