@@ -3,6 +3,7 @@ package com.danger.haztrack.data.remote.api
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.actionCodeSettings
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -35,7 +36,24 @@ class AuthRemoteDataSource @Inject constructor(
     }
 
     suspend fun sendPasswordResetEmail(email: String) {
-        firebaseAuth.sendPasswordResetEmail(email).await()
+        val  actionCodeSettings = actionCodeSettings {
+            url = "https://haztrack-62a3c.firebaseapp.com/resetPassword"
+            handleCodeInApp = true
+            setAndroidPackageName(
+                "com.danger.haztrack",
+                true,
+                null
+            )
+        }
+        firebaseAuth.sendPasswordResetEmail(email, actionCodeSettings).await()
+    }
+
+    suspend fun verifyPasswordResetCode(code: String): String {
+        return firebaseAuth.verifyPasswordResetCode(code).await()
+    }
+
+    suspend fun confirmPasswordReset(code: String, newPassword: String) {
+        firebaseAuth.confirmPasswordReset(code, newPassword).await()
     }
 
     fun signOut() {

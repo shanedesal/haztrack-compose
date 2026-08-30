@@ -659,15 +659,31 @@ LoginScreen navigates to Home
 
 ### 8.3 Password Reset
 
-**Flow:** `ForgotPasswordScreen` → `ForgotPasswordViewModel` → `SendPasswordResetEmailUseCase` → `AuthRepositoryImpl` → `AuthRemoteDataSource` → `firebaseAuth.sendPasswordResetEmail(email).await()`.
+**Flow:** `ForgotPasswordScreen` → `ForgotPasswordViewModel` → `SendPasswordResetEmailUseCase` → `AuthRepositoryImpl` → `AuthRemoteDataSource` → `firebaseAuth.sendPasswordResetEmail(email, actionCodeSettings).await()`.
 
 1. The user enters their email and taps "Send reset link".
 2. `SendPasswordResetEmailUseCase` validates the email format.
 3. Firebase sends a password-reset email to the address.
-4. On success, `ForgotPasswordUiState.isSuccess` is set to `true`.
+4. On success, `ForgotPasswordUiState.isEmailSent` is set to `true`.
 5. The composable replaces the form with a success message and a "Back to sign in" button.
 
 **Note:** Firebase does not reveal whether the email address exists in the system — it always responds with success to prevent email enumeration attacks. This is expected Firebase behaviour.
+
+Password-reset emails use Firebase's in-app action-link mode. The generated hosting link targets
+`<PROJECT_ID>.firebaseapp.com/__/auth/links`; `MainActivity` extracts the nested action URL and
+passes its `oobCode` to the reset-password navigation destination. Android App Links must be
+configured and verified for that Firebase Hosting domain. The reset form then verifies the code
+with Firebase before allowing the user to choose a new password.
+
+The Android App Links association is hosted at
+`public/.well-known/assetlinks.json` and deployed with:
+
+```bash
+firebase deploy --only hosting
+```
+
+The association file currently authorizes the debug APK fingerprint for local emulator testing.
+Add the release or Play App Signing fingerprint before distributing a production build.
 
 ### 8.4 Session Persistence
 

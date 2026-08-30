@@ -31,6 +31,14 @@ class AuthRepositoryImpl @Inject constructor(
         authService.sendPasswordResetEmail(email)
     }
 
+    override suspend fun verifyPasswordResetCode(oobCode: String): String {
+        return authService.verifyPasswordResetCode(oobCode)
+    }
+
+    override suspend fun confirmPasswordReset(oobCode: String, newPassword: String) {
+        authService.confirmPasswordReset(oobCode, newPassword)
+    }
+
     override fun signOut() {
         authService.signOut()
     }

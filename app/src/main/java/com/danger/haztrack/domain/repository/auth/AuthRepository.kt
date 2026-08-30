@@ -13,5 +13,9 @@ interface AuthRepository {
 
     suspend fun sendPasswordResetEmail(email: String)
 
+    suspend fun verifyPasswordResetCode(oobCode: String): String
+
+    suspend fun confirmPasswordReset(oobCode: String, newPassword: String)
+
     fun signOut()
 }

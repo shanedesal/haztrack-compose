@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.danger.haztrack",
+      "sha256_cert_fingerprints": [
+        "9C:37:86:23:35:38:29:D1:6F:D8:7D:4B:F2:63:52:CB:A4:87:CE:F7:E9:FC:69:2A:52:3C:4B:35:FC:43:F5:40"
+      ]
+    }
+  }
+]

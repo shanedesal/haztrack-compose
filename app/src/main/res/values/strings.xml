@@ -45,6 +45,16 @@
     <string name="forgot_password_success_message">Password reset email sent. Check your inbox.</string>
     <string name="forgot_password_back_to_login">Back to sign in</string>
 
+    <!-- Reset password -->
+    <string name="reset_password_verifying">Verifying your reset link…</string>
+    <string name="reset_password_title">Set a new password</string>
+    <string name="reset_password_subtitle">Resetting password for %1$s</string>
+    <string name="reset_password_new_password_label">New password</string>
+    <string name="reset_password_confirm_button">Reset password</string>
+    <string name="reset_password_success_message">Your password has been reset successfully.</string>
+    <string name="reset_password_back_to_login">Back to sign in</string>
+    <string name="reset_password_invalid_link">This reset link is invalid or has expired. Please request a new one.</string>
+
     <!-- Home -->
     <string name="home_welcome_title">Welcome</string>
     <string name="home_welcome_message">You\'re signed in as %1$s</string>
