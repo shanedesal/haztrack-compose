@@ -26,6 +26,7 @@
 10. [Error Handling](#10-error-handling)
 11. [Build, Lint, and Code Quality](#11-build-lint-and-code-quality)
 12. [Setting Up Locally](#12-setting-up-locally)
+13. [Firebase Hosting and Password-Reset Deep Links](deeplinks-firebase-hosting.md)
 
 ---
 
@@ -829,3 +830,18 @@ git config core.hooksPath .githooks
 | `local.properties` | Contains your local SDK path; machine-specific |
 
 Both are already listed in `app/.gitignore` and the root `.gitignore`.
+
+---
+
+## 13. Firebase Hosting and Password-Reset Deep Links
+
+The password-reset email uses a Firebase Hosting HTTPS link that Android
+recognizes as a verified App Link. `MainActivity` extracts Firebase's
+single-use `oobCode`, and the Compose navigation graph opens the
+`ResetPasswordScreen`, where Firebase verifies the code and confirms the new
+password.
+
+For a beginner-friendly explanation of the complete flow, Hosting setup,
+`assetlinks.json`, local deployment, testing, troubleshooting, and security
+guidance, see
+[Firebase Hosting and Password-Reset Deep Links](deeplinks-firebase-hosting.md).

@@ -2,6 +2,13 @@
 
 All notable feature additions, updates, bug fixes, and functionality changes are recorded here.
 
+## 2026-08-31
+
+### Documentation
+
+- Added `docs/deeplinks-firebase-hosting.md`, a beginner-focused guide to the password-reset deep-link flow, Firebase Hosting setup, Android App Links verification, deployment, testing, troubleshooting, and security considerations.
+- Linked the new guide from `docs/docs.md`.
+
 ## 2026-08-30
 
 ### Documentation
