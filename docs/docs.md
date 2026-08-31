@@ -41,7 +41,14 @@
 | Login | `login` | Email/password + Google Sign-In |
 | Register | `register` | Create account with email/password |
 | Forgot Password | `forgot_password` | Send a password-reset email |
-| Home | `home` | Post-sign-in landing screen, shows the signed-in user |
+| Reset Password | `reset_password/{oobCode}` | Verify a Firebase reset code and set a new password |
+| Home | `home` | Post-sign-in dashboard: greets the user and links to Report/My Reports |
+| Report | `report` | Placeholder for the hazard-reporting flow (opened from the FAB or Home) |
+| My Reports | `my_reports` | Placeholder list of the signed-in user's hazard reports |
+| Notifications | `notifications` | Placeholder for hazard alerts and app notifications |
+| Settings | `settings` | Signed-in user info and Sign Out |
+
+`Home`, `Report`, `My Reports`, `Notifications`, and `Settings` are the 5 tabs of the post-login navigation shell — see [Section 7](#7-navigation). `Report`, `My Reports`, and `Notifications` currently show only an empty-state message; there is no report/notification data source yet.
 
 ---
 
@@ -141,6 +148,8 @@ haztrack/
             │   ├── navigation/
             │   │   ├── HaztrackDestination.kt  # Type-safe route strings (sealed class)
             │   │   ├── HaztrackNavHost.kt       # NavHost composable — wires all screens
+            │   │   ├── MainScaffold.kt          # Bottom nav bar + docked FAB shell for the 5 post-login tabs
+            │   │   ├── BottomNavItem.kt         # Data + list describing the 4 bottom-bar tabs
             │   │   └── SessionViewModel.kt      # Decides start destination on cold launch
             │   │
             │   ├── auth/
@@ -166,11 +175,21 @@ haztrack/
             │   │       ├── ResetPasswordViewModel.kt
             │   │       └── ResetPasswordUiState.kt
             │   │
-            │   ├── home/
+            │   ├── home/                # Post-login dashboard tab
             │   │   ├── HomeScreen.kt
             │   │   ├── HomeViewModel.kt
-            │   │   ├── HomeUiState.kt
-            │   │   └── HomeEvent.kt
+            │   │   └── HomeUiState.kt
+            │   ├── report/               # Placeholder "Report a Hazard" tab (opened via the FAB)
+            │   │   └── ReportScreen.kt
+            │   ├── myreports/            # Placeholder "My Reports" tab
+            │   │   └── MyReportsScreen.kt
+            │   ├── notifications/        # Placeholder "Notifications" tab
+            │   │   └── NotificationsScreen.kt
+            │   ├── settings/             # "Settings" tab — user info + Sign Out
+            │   │   ├── SettingsScreen.kt
+            │   │   ├── SettingsViewModel.kt
+            │   │   ├── SettingsUiState.kt
+            │   │   └── SettingsEvent.kt
             │   │
             │   ├── components/         # Reusable Compose components shared across screens
             │   │   ├── AuthDivider.kt           # "OR" divider line
@@ -178,10 +197,14 @@ haztrack/
             │   │   ├── GoogleSignInButton.kt    # Branded Google button
             │   │   ├── HaztrackPasswordField.kt # Password field with show/hide toggle
             │   │   ├── HaztrackPrimaryButton.kt # Primary CTA button with loading state
-            │   │   └── HaztrackTextField.kt     # Styled text input field
+            │   │   ├── HaztrackTextField.kt     # Styled text input field
+            │   │   ├── IconBadge.kt             # Large tonal circular icon badge
+            │   │   ├── EmptyStateMessage.kt     # Icon + title + message for placeholder screens
+            │   │   └── QuickActionCard.kt       # Tonal shortcut card used on the Home dashboard
             │   │
             │   ├── theme/
             │   │   ├── Color.kt        # Palette and Material 3 ColorSchemes (light + dark)
+            │   │   ├── Shape.kt        # Rounded-corner Shapes scale (extraSmall → extraLarge)
             │   │   ├── Theme.kt        # HaztrackTheme composable
             │   │   └── Type.kt         # Typography scale
             │   │
@@ -561,10 +584,38 @@ sealed class HaztrackDestination(val route: String) {
     data object Register     : HaztrackDestination("register")
     data object ForgotPassword : HaztrackDestination("forgot_password")
     data object Home         : HaztrackDestination("home")
+    data object Report       : HaztrackDestination("report")
+    data object MyReports    : HaztrackDestination("my_reports")
+    data object Notifications: HaztrackDestination("notifications")
+    data object Settings     : HaztrackDestination("settings")
+    // ResetPassword takes an `oobCode` argument — see HaztrackDestination.kt
 }
 ```
 
 A `sealed class` is a closed set — you can only have the listed subclasses. This means if you add a new destination later, the compiler will flag every `when` expression that does not handle it.
+
+### `MainScaffold` — The Post-Login Bottom Navigation Shell
+
+`Home`, `Report`, `My Reports`, `Notifications`, and `Settings` are rendered inside a shared `MainScaffold` composable rather than each owning their own `Scaffold`. `MainScaffold` provides:
+
+- A `NavigationBar` with 4 tabs (Home, My Reports, Notifications, Settings), each showing an icon + text label. The selected tab uses a filled icon and the `primary` color; unselected tabs use an outlined icon and `onSurfaceVariant`. The list of tabs lives in `BottomNavItem.kt`.
+- A center-docked `FloatingActionButton` (a "+" icon) positioned with `FabPosition.Center`, which always navigates to the `Report` route — this is the primary way to start reporting a hazard.
+
+Tapping a tab or the FAB calls a small `navigateToTab` extension that uses the standard Compose bottom-navigation recipe (`launchSingleTop = true`, `popUpTo(Home) { saveState = true }`, `restoreState = true`), so switching tabs does not pile up the back stack and each tab remembers its own scroll/state.
+
+```kotlin
+composable(HaztrackDestination.Home.route) {
+    MainScaffold(navController = navController) { paddingValues ->
+        HomeScreen(
+            modifier = Modifier.padding(paddingValues),
+            onNavigateToReport = { navController.navigate(HaztrackDestination.Report.route) },
+            onNavigateToMyReports = { navController.navigate(HaztrackDestination.MyReports.route) },
+        )
+    }
+}
+```
+
+`Report`, `My Reports`, and `Notifications` are currently placeholder screens rendered the same way, each showing an `EmptyStateMessage`. `Settings` shows the signed-in user and the Sign Out action (see [8.5 Sign Out](#85-sign-out)).
 
 ### `SessionViewModel` — Start Destination on Cold Launch
 
@@ -590,7 +641,9 @@ Login ──► ForgotPassword
 Register ──► Home (auth screens cleared from back stack)
 Register ──► Login (pop back)
 ForgotPassword ──► Login (pop back)
-Home ──► Login (full back stack cleared on sign-out)
+ResetPassword ──► Login (full back stack cleared, via back arrow or after a successful reset)
+Home ⇄ Report ⇄ My Reports ⇄ Notifications ⇄ Settings (bottom-nav tabs, state preserved per tab)
+Settings ──► Login (full back stack cleared on sign-out)
 ```
 
 **Clearing the auth back stack** is important: after signing in, pressing the Android back button should exit the app, not send the user back to the Login screen. This is achieved with:
@@ -727,9 +780,9 @@ Sign-out must clear two things:
 1. **Firebase session** — `firebaseAuth.signOut()` clears the local token.
 2. **Credential Manager state** — `CredentialManager.clearCredentialState()` removes the saved Google credential so the account picker is shown again on the next Google Sign-In attempt.
 
-`HomeViewModel.onSignOutClick()` calls `authUseCases.signOut()` (Firebase only). The Screen itself handles the Credential Manager part via `GoogleAuthClient.signOut(context)` because, again, Credential Manager needs a Context.
+Sign Out lives on the **Settings** tab (not Home). `SettingsViewModel.onSignOutClick()` calls `authUseCases.signOut()` (Firebase only). `SettingsScreen` itself handles the Credential Manager part via `GoogleAuthClient.signOut(context)` because, again, Credential Manager needs a Context.
 
-After sign-out, `HomeEvent.NavigateToLogin` is sent and `HaztrackNavHost` navigates to Login with `popUpTo(0) { inclusive = true }` — this clears the **entire** back stack, so pressing back after sign-out exits the app.
+After sign-out, `SettingsEvent.NavigateToLogin` is sent and `HaztrackNavHost` navigates to Login with `popUpTo(0) { inclusive = true }` — this clears the **entire** back stack, so pressing back after sign-out exits the app.
 
 ---
 
@@ -744,7 +797,12 @@ Reusable composables shared across screens live in `presentation/components/`.
 | `HaztrackPrimaryButton` | Primary CTA button; shows a `CircularProgressIndicator` when `isLoading = true` |
 | `GoogleSignInButton` | Outlined button with the Google logo and "Continue with Google" text |
 | `AuthDivider` | A horizontal rule with "OR" text in the centre |
-| `AuthTopBar` | A `TopAppBar` with only a back arrow (used on Register and ForgotPassword) |
+| `AuthTopBar` | A `TopAppBar` with only a back arrow (used on Register, ForgotPassword, and ResetPassword) |
+| `IconBadge` | A large tonal circular badge spotlighting a single icon (auth status screens, empty states) |
+| `EmptyStateMessage` | Centered icon + title + message for screens with no real data yet (Report, My Reports, Notifications) |
+| `QuickActionCard` | Flat tonal shortcut card with an icon, title, and subtitle (used on the Home dashboard) |
+
+All of these components use `MaterialTheme.shapes` (defined in `theme/Shape.kt`) for consistent rounded corners, and never use gradients — only solid Material 3 tonal colors.
 
 All user-facing text in these components comes from `res/values/strings.xml` via `stringResource(R.string.xxx)`. Hardcoded strings inside Kotlin files are not used for user-visible text.
 

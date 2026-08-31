@@ -11,31 +11,51 @@ private val DarkColorScheme = darkColorScheme(
     onPrimary = HaztrackDarkBackground,
     primaryContainer = HaztrackBlueDarkContainer,
     onPrimaryContainer = HaztrackBlueContainer,
-    secondary = HaztrackBlueDark,
+    secondary = HaztrackBlueBright,
     onSecondary = HaztrackDarkBackground,
+    secondaryContainer = HaztrackDarkSurfaceVariant,
+    onSecondaryContainer = HaztrackDarkOnSurface,
+    tertiary = HaztrackBlueDark,
+    onTertiary = HaztrackDarkBackground,
     background = HaztrackDarkBackground,
     onBackground = HaztrackDarkOnSurface,
     surface = HaztrackDarkSurface,
     onSurface = HaztrackDarkOnSurface,
     surfaceVariant = HaztrackDarkSurfaceVariant,
     onSurfaceVariant = HaztrackDarkOnSurfaceVariant,
-    outline = HaztrackDarkOutline
+    surfaceContainerLowest = HaztrackDarkBackground,
+    surfaceContainerLow = HaztrackDarkSurface,
+    surfaceContainer = HaztrackDarkSurfaceElevated,
+    surfaceContainerHigh = HaztrackDarkSurfaceVariant,
+    surfaceContainerHighest = HaztrackDarkSurfaceVariant,
+    outline = HaztrackDarkOutline,
+    outlineVariant = HaztrackDarkOutlineVariant,
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = HaztrackBlue,
     onPrimary = HaztrackLightBackground,
     primaryContainer = HaztrackBlueContainer,
-    onPrimaryContainer = HaztrackLightOnSurface,
-    secondary = HaztrackBlue,
+    onPrimaryContainer = HaztrackBlueDeep,
+    secondary = HaztrackBlueDeep,
     onSecondary = HaztrackLightBackground,
+    secondaryContainer = HaztrackLightSurfaceVariant,
+    onSecondaryContainer = HaztrackLightOnSurface,
+    tertiary = HaztrackBlue,
+    onTertiary = HaztrackLightBackground,
     background = HaztrackLightBackground,
     onBackground = HaztrackLightOnSurface,
-    surface = HaztrackLightBackground,
+    surface = HaztrackLightSurface,
     onSurface = HaztrackLightOnSurface,
     surfaceVariant = HaztrackLightSurfaceVariant,
     onSurfaceVariant = HaztrackLightOnSurfaceVariant,
-    outline = HaztrackLightOutline
+    surfaceContainerLowest = HaztrackLightBackground,
+    surfaceContainerLow = HaztrackLightBackground,
+    surfaceContainer = HaztrackLightSurfaceElevated,
+    surfaceContainerHigh = HaztrackLightSurfaceVariant,
+    surfaceContainerHighest = HaztrackLightSurfaceVariant,
+    outline = HaztrackLightOutline,
+    outlineVariant = HaztrackLightOutlineVariant,
 )
 
 @Suppress("FunctionNaming")
@@ -49,6 +69,7 @@ fun HaztrackTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = Shapes,
         content = content
     )
 }

@@ -11,11 +11,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.MarkEmailRead
+import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,6 +35,7 @@ import com.danger.haztrack.R
 import com.danger.haztrack.presentation.components.AuthTopBar
 import com.danger.haztrack.presentation.components.HaztrackPrimaryButton
 import com.danger.haztrack.presentation.components.HaztrackTextField
+import com.danger.haztrack.presentation.components.IconBadge
 
 @Composable
 fun ForgotPasswordScreen(
@@ -84,28 +85,37 @@ private fun ForgotPasswordContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (uiState.isEmailSent) {
-                Icon(
-                    imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.height(48.dp),
+                IconBadge(
+                    icon = Icons.Filled.MarkEmailRead,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.primary,
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = stringResource(R.string.forgot_password_success_message),
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = stringResource(R.string.forgot_password_success_title),
+                    style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onBackground,
                     textAlign = TextAlign.Center,
                 )
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.forgot_password_success_message),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(32.dp))
                 TextButton(onClick = onNavigateBack) {
                     Text(text = stringResource(R.string.forgot_password_back_to_login))
                 }
             } else {
+                IconBadge(icon = Icons.Outlined.Email)
+                Spacer(modifier = Modifier.height(24.dp))
                 Text(
                     text = stringResource(R.string.forgot_password_title),
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onBackground,
+                    textAlign = TextAlign.Center,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -116,39 +126,47 @@ private fun ForgotPasswordContent(
                 )
                 Spacer(modifier = Modifier.height(32.dp))
 
-                HaztrackTextField(
-                    value = uiState.email,
-                    onValueChange = onEmailChange,
-                    label = stringResource(R.string.forgot_password_email_label),
-                    leadingIcon = Icons.Filled.Email,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Email,
-                        imeAction = ImeAction.Done,
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = { onSendResetLinkClick() },
-                    ),
-                    enabled = !uiState.isLoading,
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                )
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                ) {
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        HaztrackTextField(
+                            value = uiState.email,
+                            onValueChange = onEmailChange,
+                            label = stringResource(R.string.forgot_password_email_label),
+                            leadingIcon = Icons.Outlined.Email,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Email,
+                                imeAction = ImeAction.Done,
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onDone = { onSendResetLinkClick() },
+                            ),
+                            enabled = !uiState.isLoading,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
 
-                uiState.errorMessageRes?.let { errorRes ->
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = stringResource(errorRes),
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                        uiState.errorMessageRes?.let { errorRes ->
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = stringResource(errorRes),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+                        HaztrackPrimaryButton(
+                            text = stringResource(R.string.forgot_password_send_button),
+                            onClick = onSendResetLinkClick,
+                            isLoading = uiState.isLoading,
+                            enabled = uiState.isSubmitEnabled,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
-                HaztrackPrimaryButton(
-                    text = stringResource(R.string.forgot_password_send_button),
-                    onClick = onSendResetLinkClick,
-                    isLoading = uiState.isLoading,
-                    enabled = uiState.isSubmitEnabled,
-                    modifier = Modifier.fillMaxWidth(),
-                )
             }
             Spacer(modifier = Modifier.height(24.dp))
         }

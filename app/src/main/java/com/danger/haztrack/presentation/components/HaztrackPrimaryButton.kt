@@ -1,7 +1,10 @@
 package com.danger.haztrack.presentation.components
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,8 +22,14 @@ fun HaztrackPrimaryButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.height(56.dp),
         enabled = enabled && !isLoading,
+        shape = MaterialTheme.shapes.medium,
+        contentPadding = PaddingValues(horizontal = 24.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+        ),
     ) {
         if (isLoading) {
             CircularProgressIndicator(
@@ -29,7 +38,7 @@ fun HaztrackPrimaryButton(
                 strokeWidth = 2.dp,
             )
         } else {
-            Text(text = text)
+            Text(text = text, style = MaterialTheme.typography.labelLarge)
         }
     }
 }

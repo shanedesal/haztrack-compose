@@ -21,7 +21,7 @@ fun AuthDivider(modifier: Modifier = Modifier) {
     ) {
         HorizontalDivider(
             modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.outline,
+            color = MaterialTheme.colorScheme.outlineVariant,
         )
         Text(
             text = stringResource(R.string.auth_or_divider),
@@ -30,7 +30,7 @@ fun AuthDivider(modifier: Modifier = Modifier) {
         )
         HorizontalDivider(
             modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.outline,
+            color = MaterialTheme.colorScheme.outlineVariant,
         )
     }
 }

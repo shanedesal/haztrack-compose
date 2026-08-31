@@ -1,7 +1,9 @@
 package com.danger.haztrack.presentation.components
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,10 +27,12 @@ fun GoogleSignInButton(
 ) {
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.height(56.dp),
         enabled = enabled && !isLoading,
+        shape = MaterialTheme.shapes.medium,
+        contentPadding = PaddingValues(horizontal = 24.dp),
         border = ButtonDefaults.outlinedButtonBorder(enabled = enabled && !isLoading).copy(
-            brush = SolidColor(MaterialTheme.colorScheme.outline),
+            brush = SolidColor(MaterialTheme.colorScheme.outlineVariant),
         ),
     ) {
         if (isLoading) {

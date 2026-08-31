@@ -112,16 +112,16 @@ private fun LoginContent(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(modifier = Modifier.height(56.dp))
+            Spacer(modifier = Modifier.height(64.dp))
             Image(
                 painter = painterResource(R.drawable.ic_app_logo),
                 contentDescription = stringResource(R.string.app_name),
-                modifier = Modifier.height(72.dp)
+                modifier = Modifier.height(84.dp)
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = stringResource(R.string.login_title),
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Spacer(modifier = Modifier.height(8.dp))
