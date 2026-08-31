@@ -28,6 +28,8 @@
     <!-- Register -->
     <string name="register_title">Create account</string>
     <string name="register_subtitle">Sign up to get started with Haztrack</string>
+    <string name="register_first_name_label">First name</string>
+    <string name="register_last_name_label">Last name</string>
     <string name="register_email_label">Email</string>
     <string name="register_password_label">Password</string>
     <string name="register_password_hint">Must be at least 6 characters</string>
@@ -88,5 +90,15 @@
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
+    <string name="settings_profile_nav_description">View profile</string>
     <string name="settings_sign_out_button">Sign out</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Profile</string>
+    <string name="profile_photo_content_description">Profile picture</string>
+    <string name="profile_first_name_label">First name</string>
+    <string name="profile_last_name_label">Last name</string>
+    <string name="profile_email_label">Email</string>
+    <string name="profile_google_account_badge">Signed in with Google</string>
+    <string name="profile_name_fallback">Not provided</string>
 </resources>

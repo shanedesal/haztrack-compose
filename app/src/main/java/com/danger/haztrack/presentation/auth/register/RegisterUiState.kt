@@ -3,6 +3,8 @@ package com.danger.haztrack.presentation.auth.register
 import androidx.annotation.StringRes
 
 data class RegisterUiState(
+    val firstName: String = "",
+    val lastName: String = "",
     val email: String = "",
     val password: String = "",
     val confirmPassword: String = "",
@@ -12,5 +14,10 @@ data class RegisterUiState(
     @StringRes val errorMessageRes: Int? = null,
 ) {
     val isSignUpEnabled: Boolean
-        get() = email.isNotBlank() && password.isNotBlank() && confirmPassword.isNotBlank() && !isLoading
+        get() = firstName.isNotBlank() &&
+            lastName.isNotBlank() &&
+            email.isNotBlank() &&
+            password.isNotBlank() &&
+            confirmPassword.isNotBlank() &&
+            !isLoading
 }

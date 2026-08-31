@@ -1,6 +1,6 @@
 # Haztrack — Developer Documentation
 
-> **Current state:** Authentication scaffold only. The full hazard-tracking product domain has not been implemented yet. All placeholder packages (`data/local`, `data/remote/dto`, `data/service`, `util`, `presentation/common`) are empty and reserved for future features.
+> **Current state:** Authentication + user profile scaffold. The full hazard-tracking product domain has not been implemented yet. The remaining placeholder packages (`data/local`, `data/service`, `util`, `presentation/common`) are empty and reserved for future features.
 
 ---
 
@@ -22,6 +22,7 @@
    - [Password Reset](#83-password-reset)
    - [Session Persistence](#84-session-persistence)
    - [Sign Out](#85-sign-out)
+   - [User Profile](#86-user-profile)
 9. [UI Components](#9-ui-components)
 10. [Error Handling](#10-error-handling)
 11. [Build, Lint, and Code Quality](#11-build-lint-and-code-quality)
@@ -39,16 +40,17 @@
 | Screen | Route | Description |
 |---|---|---|
 | Login | `login` | Email/password + Google Sign-In |
-| Register | `register` | Create account with email/password |
+| Register | `register` | Create account with email/password (first name, last name, email, password) |
 | Forgot Password | `forgot_password` | Send a password-reset email |
 | Reset Password | `reset_password/{oobCode}` | Verify a Firebase reset code and set a new password |
 | Home | `home` | Post-sign-in dashboard: greets the user and links to Report/My Reports |
 | Report | `report` | Placeholder for the hazard-reporting flow (opened from the FAB or Home) |
 | My Reports | `my_reports` | Placeholder list of the signed-in user's hazard reports |
 | Notifications | `notifications` | Placeholder for hazard alerts and app notifications |
-| Settings | `settings` | Signed-in user info and Sign Out |
+| Settings | `settings` | Signed-in user info (tap to open Profile) and Sign Out |
+| Profile | `profile` | The signed-in user's first name, last name, email, and profile picture |
 
-`Home`, `Report`, `My Reports`, `Notifications`, and `Settings` are the 5 tabs of the post-login navigation shell — see [Section 7](#7-navigation). `Report`, `My Reports`, and `Notifications` currently show only an empty-state message; there is no report/notification data source yet.
+`Home`, `Report`, `My Reports`, `Notifications`, and `Settings` are the 5 tabs of the post-login navigation shell — see [Section 7](#7-navigation). `Report`, `My Reports`, and `Notifications` currently show only an empty-state message; there is no report/notification data source yet. `Profile` is opened from Settings and is not a bottom-nav tab (no `MainScaffold`), matching the pattern used by `ForgotPassword`/`ResetPassword`.
 
 ---
 
@@ -62,8 +64,10 @@
 | Navigation | Navigation Compose | 2.9.8 |
 | Dependency Injection | Hilt | 2.60.1 |
 | Authentication | Firebase Auth | BOM 34.18.0 |
+| User profile storage | Firebase Firestore (`users/{uid}` collection) | BOM 34.18.0 |
 | Google Sign-In | AndroidX Credentials + Google Identity | 1.6.0 / 1.2.0 |
 | Coroutines | Kotlin Coroutines + Play Services adapter | 1.11.0 |
+| Image loading | Coil (`coil-compose`, `coil-network-okhttp`) | 3.6.0 |
 | Logging | Timber | 5.0.1 |
 | Static Analysis | Detekt | 2.0.0-alpha.6 |
 | Build | Gradle (Kotlin DSL) | 9.3.1 wrapper |
@@ -87,7 +91,9 @@ haztrack/
 ├── .githooks/
 │   ├── pre-commit                      # Runs lint/detekt before every commit
 │   └── commit-msg                      # Enforces commit message format
-├── firebase.json                       # Firebase Hosting configuration and headers
+├── firebase.json                       # Firebase Hosting + Firestore configuration
+├── firestore.rules                     # Security rules: a user may only read/write their own `users/{uid}` doc
+├── firestore.indexes.json              # Firestore composite indexes (none needed yet)
 ├── public/
 │   ├── index.html                       # Firebase Hosting entry page
 │   ├── 404.html                         # Firebase Hosting fallback page
@@ -113,36 +119,48 @@ haztrack/
             ├── MainActivity.kt         # @AndroidEntryPoint — single Activity, hosts Compose
             │
             ├── di/                     # Dependency Injection (Hilt modules)
-            │   ├── FirebaseModule.kt   # Provides FirebaseAuth singleton
-            │   └── RepositoryModule.kt # Binds AuthRepositoryImpl → AuthRepository interface
+            │   ├── FirebaseModule.kt   # Provides FirebaseAuth + FirebaseFirestore singletons
+            │   └── RepositoryModule.kt # Binds *RepositoryImpl → their domain interfaces
             │
             ├── data/                   # DATA LAYER: knows about Firebase, databases, APIs
             │   ├── remote/
-            │   │   └── api/
-            │   │       └── AuthRemoteDataSource.kt  # Calls Firebase Auth directly
+            │   │   ├── api/
+            │   │   │   ├── AuthRemoteDataSource.kt  # Calls Firebase Auth directly
+            │   │   │   └── UserRemoteDataSource.kt  # Reads/writes the Firestore `users` collection
+            │   │   └── dto/
+            │   │       └── UserProfileDto.kt        # Firestore document shape (firstName, lastName, email, photoUrl)
             │   ├── repository/
-            │   │   └── auth/
-            │   │       └── AuthRepositoryImpl.kt    # Implements domain AuthRepository
+            │   │   ├── auth/
+            │   │   │   └── AuthRepositoryImpl.kt    # Implements domain AuthRepository
+            │   │   └── profile/
+            │   │       └── UserProfileRepositoryImpl.kt  # Implements domain UserProfileRepository
             │   ├── local/              # (empty — future: Room database)
-            │   ├── remote/dto/         # (empty — future: API response models)
             │   └── service/            # (empty — future: background services)
             │
             ├── domain/                 # DOMAIN LAYER: pure Kotlin, zero Android dependencies
             │   ├── model/
-            │   │   └── AuthUser.kt     # App's user model (NOT FirebaseUser)
-            │   ├── repository/auth/
-            │   │   └── AuthRepository.kt  # Interface — the contract the data layer must fulfil
-            │   └── usecase/auth/
-            │       ├── AuthInputValidation.kt       # Email regex, password length rules
-            │       ├── AuthUseCases.kt              # Facade: bundles all auth use cases
-            │       ├── GetCurrentUserUseCase.kt
-            │       ├── SignInWithEmailUseCase.kt
-            │       ├── SignUpWithEmailUseCase.kt
-            │       ├── SignInWithGoogleUseCase.kt
-            │       ├── SendPasswordResetEmailUseCase.kt
-            │       ├── VerifyPasswordResetCodeUseCase.kt
-            │       ├── ConfirmPasswordResetUseCase.kt
-            │       └── SignOutUseCase.kt
+            │   │   ├── AuthUser.kt     # App's auth/session model (NOT FirebaseUser)
+            │   │   └── UserProfile.kt  # Firestore-backed profile model (firstName, lastName, email, photoUrl)
+            │   ├── repository/
+            │   │   ├── auth/AuthRepository.kt            # Contract the auth data layer must fulfil
+            │   │   └── profile/UserProfileRepository.kt  # Contract the profile data layer must fulfil
+            │   └── usecase/
+            │       ├── auth/
+            │       │   ├── AuthInputValidation.kt       # Email/password/name validation rules
+            │       │   ├── AuthUseCases.kt              # Facade: bundles all auth use cases
+            │       │   ├── GetCurrentUserUseCase.kt
+            │       │   ├── SignInWithEmailUseCase.kt
+            │       │   ├── SignUpWithEmailUseCase.kt (validates first/last name too)
+            │       │   ├── SignInWithGoogleUseCase.kt
+            │       │   ├── SendPasswordResetEmailUseCase.kt
+            │       │   ├── VerifyPasswordResetCodeUseCase.kt
+            │       │   ├── ConfirmPasswordResetUseCase.kt
+            │       │   └── SignOutUseCase.kt
+            │       └── profile/
+            │           ├── UserProfileUseCases.kt       # Facade: bundles all profile use cases
+            │           ├── GetUserProfileUseCase.kt
+            │           ├── SaveUserProfileUseCase.kt    # Writes an explicit profile (used by registration)
+            │           └── EnsureUserProfileUseCase.kt  # Creates a profile doc on the fly if one is missing
             │
             ├── presentation/           # PRESENTATION LAYER: Compose UI + ViewModels
             │   ├── navigation/
@@ -185,11 +203,15 @@ haztrack/
             │   │   └── MyReportsScreen.kt
             │   ├── notifications/        # Placeholder "Notifications" tab
             │   │   └── NotificationsScreen.kt
-            │   ├── settings/             # "Settings" tab — user info + Sign Out
+            │   ├── settings/             # "Settings" tab — user info (tap → Profile) + Sign Out
             │   │   ├── SettingsScreen.kt
             │   │   ├── SettingsViewModel.kt
             │   │   ├── SettingsUiState.kt
             │   │   └── SettingsEvent.kt
+            │   ├── profile/              # "Profile" screen — first/last name, email, photo
+            │   │   ├── ProfileScreen.kt
+            │   │   ├── ProfileViewModel.kt
+            │   │   └── ProfileUiState.kt
             │   │
             │   ├── components/         # Reusable Compose components shared across screens
             │   │   ├── AuthDivider.kt           # "OR" divider line
@@ -200,7 +222,8 @@ haztrack/
             │   │   ├── HaztrackTextField.kt     # Styled text input field
             │   │   ├── IconBadge.kt             # Large tonal circular icon badge
             │   │   ├── EmptyStateMessage.kt     # Icon + title + message for placeholder screens
-            │   │   └── QuickActionCard.kt       # Tonal shortcut card used on the Home dashboard
+            │   │   ├── QuickActionCard.kt       # Tonal shortcut card used on the Home dashboard
+            │   │   └── UserAvatar.kt            # Photo (Coil) or initials-circle avatar, used by Settings + Profile
             │   │
             │   ├── theme/
             │   │   ├── Color.kt        # Palette and Material 3 ColorSchemes (light + dark)
@@ -331,17 +354,55 @@ Implements the `AuthRepository` **interface** defined in the domain layer. Its j
 
 ```kotlin
 private fun FirebaseUser.toAuthUser(): AuthUser {
+    val isGoogleAccount = providerData.any { it.providerId == GoogleAuthProvider.PROVIDER_ID }
     return AuthUser(
         id = uid,
         email = email,
         displayName = displayName,
         photoUrl = photoUrl?.toString(),
         isEmailVerified = isEmailVerified,
+        isGoogleAccount = isGoogleAccount,
     )
 }
 ```
 
 This conversion is a private **extension function** on `FirebaseUser`. Extension functions in Kotlin let you add methods to classes you don't own — here it reads as "convert this `FirebaseUser` into an `AuthUser`".
+
+**`isGoogleAccount`:** derived from `FirebaseUser.getProviderData()` — `true` when one of the linked providers is `GoogleAuthProvider.PROVIDER_ID` (`"google.com"`). The Profile screen uses this to show a "Signed in with Google" badge.
+
+#### `UserRemoteDataSource` and `UserProfileRepositoryImpl`
+
+```
+data/remote/api/UserRemoteDataSource.kt
+data/remote/dto/UserProfileDto.kt
+data/repository/profile/UserProfileRepositoryImpl.kt
+```
+
+Structured profile data (first name, last name, email, photo) is **not** stored on `AuthUser`/Firebase Auth — Firebase Auth only exposes a single `displayName` string. Instead it lives in a dedicated Firestore collection, following the same data-source → repository → domain-model pattern as auth:
+
+```kotlin
+// UserRemoteDataSource — raw Firestore access, returns the DTO
+suspend fun getUserProfile(userId: String): UserProfileDto? {
+    val snapshot = firestore.collection("users").document(userId).get().await()
+    return if (snapshot.exists()) snapshot.toObject(UserProfileDto::class.java) else null
+}
+
+suspend fun saveUserProfile(userId: String, profile: UserProfileDto) {
+    firestore.collection("users").document(userId).set(profile).await()
+}
+```
+
+`UserProfileDto` is a plain data class with default values for every field (`firstName: String = ""`, etc.) — Firestore's Android SDK deserializes documents into POJOs via reflection and needs a no-argument constructor, which Kotlin only synthesizes when every constructor parameter has a default.
+
+`UserProfileRepositoryImpl` implements the domain `UserProfileRepository` interface and converts `UserProfileDto` ↔ `UserProfile` (the domain model), exactly like `AuthRepositoryImpl` converts `FirebaseUser` ↔ `AuthUser`. `getUserProfile` also wraps the Firestore call in `runCatching` and logs failures with Timber rather than throwing, since a transient network failure while loading a profile shouldn't crash the Profile screen — see [8.6](#86-user-profile) for how the ViewModel handles a `null` result.
+
+**Security rules** (`firestore.rules`, at the repo root) restrict each `users/{uid}` document to the signed-in user with that uid:
+
+```
+match /users/{userId} {
+  allow read, write: if request.auth != null && request.auth.uid == userId;
+}
+```
 
 ---
 
@@ -364,10 +425,71 @@ data class AuthUser(
     val displayName: String?,
     val photoUrl: String?,
     val isEmailVerified: Boolean,
+    val isGoogleAccount: Boolean = false,
 )
 ```
 
-A `data class` in Kotlin auto-generates `equals()`, `hashCode()`, and `copy()`. This is the canonical user object used everywhere above the data layer. The presentation layer never imports `FirebaseUser`.
+A `data class` in Kotlin auto-generates `equals()`, `hashCode()`, and `copy()`. This is the canonical user object used everywhere above the data layer. The presentation layer never imports `FirebaseUser`. `isGoogleAccount` is derived by `AuthRepositoryImpl` from Firebase's provider data — see [5.1](#51-data-layer). `AuthUser` only carries auth/session data; structured profile fields live on `UserProfile` below.
+
+#### `UserProfile` — the Firestore-Backed Domain Model
+
+```
+domain/model/UserProfile.kt
+```
+
+```kotlin
+data class UserProfile(
+    val id: String,
+    val firstName: String,
+    val lastName: String,
+    val email: String?,
+    val photoUrl: String?,
+)
+```
+
+#### `UserProfileRepository` — the Interface Contract
+
+```
+domain/repository/profile/UserProfileRepository.kt
+```
+
+```kotlin
+interface UserProfileRepository {
+    suspend fun getUserProfile(userId: String): UserProfile?
+    suspend fun saveUserProfile(profile: UserProfile)
+}
+```
+
+#### Profile Use Cases
+
+```
+domain/usecase/profile/
+```
+
+- **`GetUserProfileUseCase`** — a thin pass-through to `UserProfileRepository.getUserProfile`.
+- **`SaveUserProfileUseCase`** — writes an explicit `UserProfile` (used right after email/password registration, where the user typed their own first/last name).
+- **`EnsureUserProfileUseCase`** — the interesting one. It checks whether a profile document already exists; if so it returns it as-is. If not, it derives a best-effort name and creates one:
+
+```kotlin
+suspend operator fun invoke(user: AuthUser, firstName: String? = null, lastName: String? = null): UserProfile {
+    userProfileRepository.getUserProfile(user.id)?.let { return it }
+
+    val (derivedFirstName, derivedLastName) = splitDisplayName(user.displayName)
+    val profile = UserProfile(
+        id = user.id,
+        firstName = firstName?.trim()?.takeIf { it.isNotBlank() } ?: derivedFirstName ?: "",
+        lastName = lastName?.trim()?.takeIf { it.isNotBlank() } ?: derivedLastName ?: "",
+        email = user.email,
+        photoUrl = user.photoUrl,
+    )
+    userProfileRepository.saveUserProfile(profile)
+    return profile
+}
+```
+
+`EnsureUserProfileUseCase` is called after **every** successful sign-in (email and Google, see [8.1](#81-firebase-email-authentication)/[8.2](#82-google-sign-in)) and again when `ProfileScreen` loads. This makes profile creation self-healing: a Google account signing in for the first time, an account created before this feature existed, or a registration whose Firestore write failed will all end up with a real profile document instead of a permanently blank one — no manual migration step required. When no explicit name is supplied, it splits `AuthUser.displayName` on the first space (Firebase Auth's only name field) as the best available fallback.
+
+**`UserProfileUseCases`** groups all three the same way `AuthUseCases` groups the auth use cases, so ViewModels inject one object instead of three.
 
 #### `AuthRepository` — the Interface Contract
 
@@ -379,7 +501,7 @@ domain/repository/auth/AuthRepository.kt
 interface AuthRepository {
     fun getCurrentUser(): AuthUser?
     suspend fun signInWithEmail(email: String, password: String): AuthUser
-    suspend fun signUpWithEmail(email: String, password: String): AuthUser
+    suspend fun signUpWithEmail(firstName: String, lastName: String, email: String, password: String): AuthUser
     suspend fun signInWithGoogle(idToken: String): AuthUser
     suspend fun sendPasswordResetEmail(email: String)
     fun signOut()
@@ -518,10 +640,14 @@ object FirebaseModule {
     @Provides
     @Singleton
     fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
+
+    @Provides
+    @Singleton
+    fun provideFirebaseFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
 }
 ```
 
-`RepositoryModule` uses `@Binds` (for telling Hilt "when someone asks for `AuthRepository`, give them `AuthRepositoryImpl`"):
+`RepositoryModule` uses `@Binds` (for telling Hilt "when someone asks for `AuthRepository`, give them `AuthRepositoryImpl`", and likewise for `UserProfileRepository`):
 ```kotlin
 @Module
 @InstallIn(SingletonComponent::class)
@@ -529,6 +655,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindUserProfileRepository(impl: UserProfileRepositoryImpl): UserProfileRepository
 }
 ```
 
@@ -565,9 +695,17 @@ FirebaseAuth (from FirebaseModule)
     → injected into AuthRemoteDataSource
         → injected into AuthRepositoryImpl
             → bound as AuthRepository (from RepositoryModule)
-                → injected into each UseCase
+                → injected into each auth UseCase
                     → injected into AuthUseCases
                         → injected into each ViewModel
+
+FirebaseFirestore (from FirebaseModule)
+    → injected into UserRemoteDataSource
+        → injected into UserProfileRepositoryImpl
+            → bound as UserProfileRepository (from RepositoryModule)
+                → injected into each profile UseCase
+                    → injected into UserProfileUseCases
+                        → injected into each ViewModel (alongside AuthUseCases)
 ```
 
 ---
@@ -588,6 +726,7 @@ sealed class HaztrackDestination(val route: String) {
     data object MyReports    : HaztrackDestination("my_reports")
     data object Notifications: HaztrackDestination("notifications")
     data object Settings     : HaztrackDestination("settings")
+    data object Profile      : HaztrackDestination("profile")
     // ResetPassword takes an `oobCode` argument — see HaztrackDestination.kt
 }
 ```
@@ -643,6 +782,7 @@ Register ──► Login (pop back)
 ForgotPassword ──► Login (pop back)
 ResetPassword ──► Login (full back stack cleared, via back arrow or after a successful reset)
 Home ⇄ Report ⇄ My Reports ⇄ Notifications ⇄ Settings (bottom-nav tabs, state preserved per tab)
+Settings ──► Profile (pop back to return to Settings)
 Settings ──► Login (full back stack cleared on sign-out)
 ```
 
@@ -673,8 +813,10 @@ navigate(HaztrackDestination.Home.route) {
 7. On failure, the exception is mapped to a string resource by `AuthErrorMapper` and displayed below the form.
 
 **Registration** follows the same path but also:
-- Requires a "Confirm Password" field.
+- Requires **First Name** and **Last Name** fields in addition to email/password, and a "Confirm Password" field. All fields must be non-blank for the "Create account" button to be enabled (`isSignUpEnabled` in `RegisterUiState`).
 - The ViewModel checks for a password mismatch **before** calling the use case, so no network call is made if passwords differ.
+- `SignUpWithEmailUseCase` validates that first/last name are non-blank via `AuthInputValidation.name(...)`, then `AuthRepositoryImpl.signUpWithEmail` combines them into a single string and calls `FirebaseUser.updateProfile(UserProfileChangeRequest)` right after `createUserWithEmailAndPassword`, so the account's Firebase `displayName` is populated immediately (previously, email/password accounts were created with no name at all).
+- Once the `AuthUser` comes back, `RegisterViewModel` calls `UserProfileUseCases.saveUserProfile(...)` to write the explicit first/last name (plus email and photo URL) to the user's Firestore profile document — see [8.6](#86-user-profile). This write is wrapped in its own `runCatching` and doesn't block navigation to Home if it fails, since `EnsureUserProfileUseCase` will retry/backfill it later.
 
 ### 8.2 Google Sign-In
 
@@ -715,6 +857,10 @@ SignInWithGoogleUseCase → AuthRepositoryImpl → AuthRemoteDataSource
   GoogleAuthProvider.getCredential(idToken, null)
   firebaseAuth.signInWithCredential(firebaseCredential).await()
   Returns FirebaseUser → AuthUser
+        │
+LoginViewModel calls userProfileUseCases.ensureUserProfile(authUser)
+  Creates the user's Firestore profile document on their first Google sign-in
+  (deriving first/last name from the Google display name) — see 8.6
         │
 LoginViewModel sends LoginEvent.NavigateToHome
         │
@@ -784,6 +930,24 @@ Sign Out lives on the **Settings** tab (not Home). `SettingsViewModel.onSignOutC
 
 After sign-out, `SettingsEvent.NavigateToLogin` is sent and `HaztrackNavHost` navigates to Login with `popUpTo(0) { inclusive = true }` — this clears the **entire** back stack, so pressing back after sign-out exits the app.
 
+### 8.6 User Profile
+
+The Settings screen's user info card is tappable (a chevron hints at this) and navigates to the `profile` route, opening `ProfileScreen`. Like `ForgotPasswordScreen`/`ResetPasswordScreen`, it is a standalone `Scaffold` with an `AuthTopBar` (back arrow + "Profile" title) rather than a `MainScaffold` tab, since it's a detail screen reached from Settings, not a bottom-nav destination.
+
+Profile data (first name, last name, email, photo) is stored in Firestore, not on `AuthUser` — see [5.1](#51-data-layer)/[5.2](#52-domain-layer) for the `UserProfile` model and repository. `ProfileViewModel` combines both sources:
+
+1. Reads `AuthUseCases.getCurrentUser()` synchronously (id, email, photo, `isGoogleAccount`) so the screen has *something* to show immediately.
+2. Launches a coroutine calling `UserProfileUseCases.ensureUserProfile(authUser)`, which fetches the Firestore document — or creates one on the fly if it's missing (see [5.2](#52-domain-layer)) — and updates `ProfileUiState` with the authoritative `firstName`/`lastName` (and `email`/`photoUrl`, preferring the Firestore values but falling back to the auth ones if Firestore doesn't have them).
+3. `ProfileUiState.isLoading` starts `true`; `ProfileScreen` shows a centered `CircularProgressIndicator` until the Firestore call completes, then reveals the profile content.
+
+The screen renders:
+
+- A large `UserAvatar` — the user's photo (loaded over the network with Coil) if a `photoUrl` is available (always true for Google accounts, never set for new email/password accounts), otherwise a tonal circle with the user's initial.
+- A "Signed in with Google" badge, shown only when `isGoogleAccount` is `true`.
+- A card with three rows — **First name**, **Last name**, **Email**. Any missing value falls back to a "Not provided" placeholder instead of crashing or showing blank text.
+
+Because both Settings and Profile need to render "a photo or an initials circle", that logic lives in the shared `UserAvatar` component (see [Section 9](#9-ui-components)) instead of being duplicated.
+
 ---
 
 ## 9. UI Components
@@ -797,10 +961,11 @@ Reusable composables shared across screens live in `presentation/components/`.
 | `HaztrackPrimaryButton` | Primary CTA button; shows a `CircularProgressIndicator` when `isLoading = true` |
 | `GoogleSignInButton` | Outlined button with the Google logo and "Continue with Google" text |
 | `AuthDivider` | A horizontal rule with "OR" text in the centre |
-| `AuthTopBar` | A `TopAppBar` with only a back arrow (used on Register, ForgotPassword, and ResetPassword) |
+| `AuthTopBar` | A `TopAppBar` with a back arrow and an optional title (used on Register, ForgotPassword, ResetPassword, and Profile) |
 | `IconBadge` | A large tonal circular badge spotlighting a single icon (auth status screens, empty states) |
 | `EmptyStateMessage` | Centered icon + title + message for screens with no real data yet (Report, My Reports, Notifications) |
 | `QuickActionCard` | Flat tonal shortcut card with an icon, title, and subtitle (used on the Home dashboard) |
+| `UserAvatar` | Circular user photo (via Coil `AsyncImage`) with an initials-circle fallback when no photo URL is available; used on Settings and Profile |
 
 All of these components use `MaterialTheme.shapes` (defined in `theme/Shape.kt`) for consistent rounded corners, and never use gradients — only solid Material 3 tonal colors.
 
@@ -869,7 +1034,7 @@ git config core.hooksPath .githooks
 
 - Android Studio (latest stable) or IntelliJ IDEA with the Android plugin.
 - JDK 11+ (the project compiles with Java 11 compatibility).
-- A Firebase project with **Email/Password** and **Google** sign-in methods enabled in the Firebase Console.
+- A Firebase project with **Email/Password** and **Google** sign-in methods enabled in the Firebase Console, and **Cloud Firestore** created (Native mode) for it.
 
 ### Steps
 
@@ -896,6 +1061,12 @@ git config core.hooksPath .githooks
    ```
 
 6. **Run on a device or emulator** with Google Play Services installed (required for Credential Manager / Google Sign-In).
+
+7. **Deploy the Firestore security rules** so profile reads/writes aren't rejected:
+   ```bash
+   firebase deploy --only firestore:rules
+   ```
+   (This is separate from `firebase deploy --only hosting`, which only deploys the password-reset browser fallback.)
 
 ### Key Files Never to Commit
 

@@ -5,7 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -20,6 +20,7 @@ import com.danger.haztrack.presentation.auth.resetpassword.ResetPasswordScreen
 import com.danger.haztrack.presentation.home.HomeScreen
 import com.danger.haztrack.presentation.myreports.MyReportsScreen
 import com.danger.haztrack.presentation.notifications.NotificationsScreen
+import com.danger.haztrack.presentation.profile.ProfileScreen
 import com.danger.haztrack.presentation.report.ReportScreen
 import com.danger.haztrack.presentation.settings.SettingsScreen
 import kotlinx.coroutines.flow.StateFlow
@@ -108,8 +109,15 @@ fun HaztrackNavHost(
                 SettingsScreen(
                     modifier = Modifier.padding(paddingValues),
                     onSignedOut = { navController.navigateToLoginAndClearStack() },
+                    onNavigateToProfile = { navController.navigate(HaztrackDestination.Profile.route) },
                 )
             }
+        }
+
+        composable(HaztrackDestination.Profile.route) {
+            ProfileScreen(
+                onNavigateBack = { navController.popBackStack() },
+            )
         }
     }
 }

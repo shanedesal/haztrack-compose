@@ -10,6 +10,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -20,9 +21,13 @@ import com.danger.haztrack.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AuthTopBar(onNavigateBack: () -> Unit, modifier: Modifier = Modifier) {
+fun AuthTopBar(onNavigateBack: () -> Unit, modifier: Modifier = Modifier, title: String? = null) {
     CenterAlignedTopAppBar(
-        title = {},
+        title = {
+            if (title != null) {
+                Text(text = title, style = MaterialTheme.typography.titleMedium)
+            }
+        },
         modifier = modifier,
         navigationIcon = {
             IconButton(

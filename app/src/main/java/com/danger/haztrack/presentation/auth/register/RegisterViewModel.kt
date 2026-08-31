@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.danger.haztrack.R
 import com.danger.haztrack.domain.usecase.auth.AuthUseCases
+import com.danger.haztrack.domain.usecase.profile.UserProfileUseCases
 import com.danger.haztrack.presentation.auth.common.toAuthErrorMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -19,6 +20,7 @@ import javax.inject.Inject
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
     private val authUseCases: AuthUseCases,
+    private val userProfileUseCases: UserProfileUseCases,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RegisterUiState())
@@ -26,6 +28,14 @@ class RegisterViewModel @Inject constructor(
 
     private val _events = Channel<RegisterEvent>(Channel.BUFFERED)
     val events: Flow<RegisterEvent> = _events.receiveAsFlow()
+
+    fun onFirstNameChange(firstName: String) {
+        _uiState.update { it.copy(firstName = firstName, errorMessageRes = null) }
+    }
+
+    fun onLastNameChange(lastName: String) {
+        _uiState.update { it.copy(lastName = lastName, errorMessageRes = null) }
+    }
 
     fun onEmailChange(email: String) {
         _uiState.update { it.copy(email = email, errorMessageRes = null) }
@@ -59,8 +69,24 @@ class RegisterViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessageRes = null) }
             runCatching {
-                authUseCases.signUpWithEmail(state.email.trim(), state.password)
-            }.onSuccess {
+                authUseCases.signUpWithEmail(
+                    state.firstName.trim(),
+                    state.lastName.trim(),
+                    state.email.trim(),
+                    state.password,
+                )
+            }.onSuccess { authUser ->
+                // The Firestore profile write is best-effort here: if it fails, ProfileScreen
+                // self-heals via EnsureUserProfileUseCase the next time the user opens it.
+                runCatching {
+                    userProfileUseCases.saveUserProfile(
+                        userId = authUser.id,
+                        firstName = state.firstName,
+                        lastName = state.lastName,
+                        email = authUser.email,
+                        photoUrl = authUser.photoUrl,
+                    )
+                }
                 _uiState.update { it.copy(isLoading = false) }
                 _events.send(RegisterEvent.NavigateToHome)
             }.onFailure { throwable ->

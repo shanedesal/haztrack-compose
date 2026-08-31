@@ -14,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -27,10 +28,11 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.danger.haztrack.R
 import com.danger.haztrack.presentation.components.AuthTopBar
@@ -59,6 +61,8 @@ fun RegisterScreen(
         uiState = uiState,
         modifier = modifier,
         onNavigateBack = onNavigateBack,
+        onFirstNameChange = viewModel::onFirstNameChange,
+        onLastNameChange = viewModel::onLastNameChange,
         onEmailChange = viewModel::onEmailChange,
         onPasswordChange = viewModel::onPasswordChange,
         onConfirmPasswordChange = viewModel::onConfirmPasswordChange,
@@ -72,6 +76,8 @@ fun RegisterScreen(
 private fun RegisterContent(
     uiState: RegisterUiState,
     onNavigateBack: () -> Unit,
+    onFirstNameChange: (String) -> Unit,
+    onLastNameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
@@ -108,6 +114,46 @@ private fun RegisterContent(
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(32.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                HaztrackTextField(
+                    value = uiState.firstName,
+                    onValueChange = onFirstNameChange,
+                    label = stringResource(R.string.register_first_name_label),
+                    leadingIcon = Icons.Filled.Person,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words,
+                        imeAction = ImeAction.Next,
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Next) },
+                    ),
+                    enabled = !uiState.isLoading,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                )
+                HaztrackTextField(
+                    value = uiState.lastName,
+                    onValueChange = onLastNameChange,
+                    label = stringResource(R.string.register_last_name_label),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words,
+                        imeAction = ImeAction.Next,
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                    ),
+                    enabled = !uiState.isLoading,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
 
             HaztrackTextField(
                 value = uiState.email,

@@ -4,6 +4,7 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.danger.haztrack.domain.usecase.auth.AuthUseCases
+import com.danger.haztrack.domain.usecase.profile.UserProfileUseCases
 import com.danger.haztrack.presentation.auth.common.toAuthErrorMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -19,6 +20,7 @@ import javax.inject.Inject
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val authUseCases: AuthUseCases,
+    private val userProfileUseCases: UserProfileUseCases,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -47,7 +49,8 @@ class LoginViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, errorMessageRes = null) }
             runCatching {
                 authUseCases.signInWithEmail(state.email.trim(), state.password)
-            }.onSuccess {
+            }.onSuccess { authUser ->
+                runCatching { userProfileUseCases.ensureUserProfile(authUser) }
                 _uiState.update { it.copy(isLoading = false) }
                 _events.send(LoginEvent.NavigateToHome)
             }.onFailure { throwable ->
@@ -66,7 +69,8 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching {
                 authUseCases.signInWithGoogle(idToken)
-            }.onSuccess {
+            }.onSuccess { authUser ->
+                runCatching { userProfileUseCases.ensureUserProfile(authUser) }
                 _uiState.update { it.copy(isGoogleSignInLoading = false) }
                 _events.send(LoginEvent.NavigateToHome)
             }.onFailure { throwable ->

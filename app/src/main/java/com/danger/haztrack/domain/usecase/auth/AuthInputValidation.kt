@@ -21,6 +21,14 @@ object AuthInputValidation {
         return value
     }
 
+    fun name(value: String): String {
+        val name = value.trim()
+        require(name.isNotBlank()) {
+            "Name must not be blank"
+        }
+        return name
+    }
+
     fun googleIdToken(value: String): String {
         require(value.isNotBlank()) {
             "Google ID token must not be blank"

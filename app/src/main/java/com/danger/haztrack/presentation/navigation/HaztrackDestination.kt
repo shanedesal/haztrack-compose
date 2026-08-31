@@ -9,6 +9,7 @@ sealed class HaztrackDestination(val route: String) {
     data object MyReports : HaztrackDestination("my_reports")
     data object Notifications : HaztrackDestination("notifications")
     data object Settings : HaztrackDestination("settings")
+    data object Profile : HaztrackDestination("profile")
 
     object ResetPassword : HaztrackDestination("reset_password/{oobCode}"){
         fun createRoute(oobCode: String) = "reset_password/$oobCode"

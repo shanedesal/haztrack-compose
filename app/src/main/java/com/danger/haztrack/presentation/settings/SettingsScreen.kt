@@ -1,7 +1,6 @@
 package com.danger.haztrack.presentation.settings
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,13 +8,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -33,15 +31,17 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.danger.haztrack.R
 import com.danger.haztrack.presentation.auth.common.GoogleAuthClient
+import com.danger.haztrack.presentation.components.UserAvatar
 import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
     onSignedOut: () -> Unit,
+    onNavigateToProfile: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -67,6 +67,7 @@ fun SettingsScreen(
                 viewModel.onSignOutClick()
             }
         },
+        onProfileClick = onNavigateToProfile,
     )
 }
 
@@ -74,6 +75,7 @@ fun SettingsScreen(
 private fun SettingsContent(
     uiState: SettingsUiState,
     onSignOutClick: () -> Unit,
+    onProfileClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val displayName = uiState.user?.displayName?.takeIf { it.isNotBlank() }
@@ -95,7 +97,9 @@ private fun SettingsContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onProfileClick),
             shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainer,
         ) {
@@ -105,20 +109,13 @@ private fun SettingsContent(
                     .padding(20.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = initial,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+                UserAvatar(
+                    photoUrl = uiState.user?.photoUrl,
+                    initial = initial,
+                    size = 56.dp,
+                )
                 Spacer(modifier = Modifier.width(16.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = displayName ?: email ?: stringResource(R.string.home_greeting_fallback_name),
                         style = MaterialTheme.typography.titleMedium,
@@ -133,6 +130,11 @@ private fun SettingsContent(
                         )
                     }
                 }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(R.string.settings_profile_nav_description),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 
