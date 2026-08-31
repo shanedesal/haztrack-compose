@@ -1,29 +1,35 @@
 # Firebase Hosting and Password-Reset Deep Links
 
-This guide explains how Haztrack turns a password-reset email into an
-in-app password-reset screen. It is written for developers who are new to
-Android deep links, Firebase Hosting, and the MVVM architecture used by this
-project.
+This guide explains how Haztrack turns a password-reset email into either an
+in-app password-reset screen or a browser-based reset page. It is written for
+developers who are new to Android deep links, Firebase Hosting, and the MVVM
+architecture used by this project.
 
 ## 1. What This Feature Does
 
-The password-reset feature has two parts:
+The password-reset feature supports both installed-app and browser flows:
 
 1. The user enters an email address in `ForgotPasswordScreen`.
 2. Firebase sends a password-reset email.
 3. The user taps the link in the email.
-4. Android recognizes the HTTPS link as belonging to Haztrack.
+4. If Haztrack is installed, Android recognizes the HTTPS link as belonging
+   to Haztrack.
 5. Android opens `MainActivity` and delivers the URL as an `Intent`.
 6. Haztrack extracts Firebase's one-time reset code (`oobCode`).
 7. Navigation opens `ResetPasswordScreen`.
-8. Firebase verifies the code and returns the email address it belongs to.
-9. The user enters a new password.
-10. Firebase confirms the reset, and Haztrack returns the user to sign-in.
+8. Otherwise, Firebase opens the configured browser action handler.
+9. The app or browser verifies the code and returns the account email.
+10. The user enters a new password.
+11. Firebase confirms the reset, and the app or browser displays success.
 
-The website is not responsible for changing the password. Firebase Hosting
-provides the HTTPS domain and the Android App Links association file. The
-Android app performs the actual code verification and password change through
-the Firebase Authentication SDK.
+When the app is installed, the Android app performs the code verification and
+password change through the Firebase Authentication SDK. When the app is not
+installed, Firebase sends the action to the custom web action handler
+configured in the Firebase Authentication email templates. This project uses
+`https://haztrack-62a3c.firebaseapp.com/resetPassword`, served by
+`public/resetPassword/index.html`, which performs the same operations with the
+Firebase Web SDK. In both cases, the one-time reset code is verified by
+Firebase, not by Hosting.
 
 ## 2. Important Terms
 
@@ -288,12 +294,15 @@ The important parts are:
 - `public/.well-known/assetlinks.json` is the Android domain-association
   file.
 - The header ensures the association file is served as JSON.
-- `public/index.html` is the default Hosting page.
+- `public/resetPassword/index.html` is the browser fallback reset page.
+- `public/index.html` is the default Hosting landing page.
 - `public/404.html` is the default Hosting error page.
 
-The `public` HTML pages are not the password-reset form. The form is rendered
-by the Android app. Hosting mainly provides the domain, Firebase's reserved
-`/__/auth/links` endpoint, and the association file required by Android.
+The Hosting project provides the domain, Firebase's reserved `/__/auth/links`
+endpoint, the Android association file, and the browser fallback form. The
+fallback page loads the Firebase Web SDK from Hosting's reserved SDK paths,
+reads `mode` and `oobCode` from the action URL, verifies the code, and calls
+`confirmPasswordReset`. It does not store passwords or reset codes.
 
 The selected Firebase project is stored in `.firebaserc`. In this project it
 is `haztrack-62a3c`.
@@ -332,7 +341,36 @@ The route argument is read by `ResetPasswordViewModel` through
 The navigation back stack is cleared after a successful reset. This prevents
 the user from pressing Back and returning to a stale reset screen.
 
-## 9. Local Development and Deployment
+## 9. How the Browser Fallback Works
+
+If the user opens the reset email on a desktop browser or on a phone without
+Haztrack installed, Firebase routes the action to the custom web action
+handler configured in Authentication email templates:
+
+```text
+https://haztrack-62a3c.firebaseapp.com/resetPassword
+```
+
+This is separate from the `ActionCodeSettings.url` value in
+`AuthRemoteDataSource`. That value is the continue URL carried inside the
+action link. The custom action handler URL must be configured in the Firebase
+Console under Authentication → Templates → the password-reset email →
+Customize action URL.
+
+The deployed page at `public/resetPassword/index.html`:
+
+1. Reads `mode` and `oobCode` from the query string.
+2. Removes the query string from the browser address bar.
+3. Calls `verifyPasswordResetCode` with the Firebase Web SDK.
+4. Displays the account email and asks for a new password.
+5. Calls `confirmPasswordReset` and displays a success message.
+
+The page keeps the code only in memory while the form is open. It does not
+log the full URL, reset code, or password. The page is a static client, so
+Firebase Authentication remains responsible for validating the one-time code
+and changing the password.
+
+## 10. Local Development and Deployment
 
 ### Prerequisites
 
@@ -343,6 +381,9 @@ You need:
 - The Firebase CLI installed and authenticated.
 - `app/google-services.json` for the Android build.
 - The correct debug or release SHA-256 certificate fingerprint.
+- The Firebase Console password-reset email template configured with
+  `https://haztrack-62a3c.firebaseapp.com/resetPassword` as its custom action
+  URL.
 
 ### Deploy the Hosting files
 
@@ -358,12 +399,21 @@ After deployment, check the association file:
 curl -i https://haztrack-62a3c.firebaseapp.com/.well-known/assetlinks.json
 ```
 
+Then check the browser fallback page:
+
+```bash
+curl -i https://haztrack-62a3c.firebaseapp.com/resetPassword/
+```
+
 Confirm that:
 
 - The response is successful.
 - The response `Content-Type` is `application/json`.
 - The JSON is valid.
 - The package name and fingerprint match the APK being tested.
+- The fallback page returns `200` and contains the password-reset form.
+- The password-reset email template uses the fallback page as its custom
+  action URL.
 
 ### Build and install the debug app
 
@@ -408,7 +458,7 @@ To inspect App Links status on a supported Android device:
 adb shell pm get-app-links --user 0 com.danger.haztrack
 ```
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 ### The link opens only in the browser
 
@@ -456,7 +506,7 @@ release or Play App Signing SHA-256 fingerprint to `assetlinks.json` and
 deploy again. Also verify that the release application ID and manifest host
 are unchanged.
 
-## 11. Development Rules and Safety
+## 12. Development Rules and Safety
 
 - Never log the full incoming URL or `oobCode`.
 - Never log passwords or include them in analytics events.
@@ -476,7 +526,7 @@ pass it from the Android intent into the navigation destination because the
 feature needs it, but minimize its lifetime and never expose it through
 logs, crash messages, screenshots, or copied documentation.
 
-## 12. Files Involved
+## 13. Files Involved
 
 The main files for this feature are:
 
@@ -495,6 +545,8 @@ The main files for this feature are:
 - `app/src/main/java/com/danger/haztrack/data/remote/api/AuthRemoteDataSource.kt`
   — configures Firebase action links and calls Firebase Auth.
 - `firebase.json` — configures Firebase Hosting and response headers.
+- `public/resetPassword/index.html` — provides the browser password-reset
+  fallback.
 - `public/.well-known/assetlinks.json` — authorizes Android App Links.
 - `.firebaserc` — selects the Firebase project for CLI commands.
 

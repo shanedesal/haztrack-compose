@@ -9,6 +9,11 @@ All notable feature additions, updates, bug fixes, and functionality changes are
 - Added `docs/deeplinks-firebase-hosting.md`, a beginner-focused guide to the password-reset deep-link flow, Firebase Hosting setup, Android App Links verification, deployment, testing, troubleshooting, and security considerations.
 - Linked the new guide from `docs/docs.md`.
 
+### Fixed
+
+- Added `public/resetPassword/index.html` as the Firebase Hosting browser fallback so desktop users and phones without the app can verify a reset code and set a new password instead of receiving a 404 page.
+- Updated the Firebase Hosting and project documentation to describe and verify the browser reset flow.
+
 ## 2026-08-30
 
 ### Documentation

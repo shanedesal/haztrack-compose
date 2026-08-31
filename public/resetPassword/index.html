@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Reset your password | Haztrack</title>
+  <script defer src="/__/firebase/12.18.0/firebase-app-compat.js"></script>
+  <script defer src="/__/firebase/12.18.0/firebase-auth-compat.js"></script>
+  <script defer src="/__/firebase/init.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Arial, sans-serif;
+      background: #f5f7fa;
+      color: #172033;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+    }
+
+    main {
+      width: min(100% - 2rem, 28rem);
+      box-sizing: border-box;
+      padding: 2rem;
+      background: #ffffff;
+      border: 1px solid #d9e0ea;
+      border-radius: 0.75rem;
+      box-shadow: 0 0.5rem 1.5rem rgb(23 32 51 / 10%);
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    label {
+      display: block;
+      margin: 1rem 0 0.4rem;
+      font-weight: 600;
+    }
+
+    input,
+    button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.75rem;
+      font: inherit;
+      border-radius: 0.4rem;
+    }
+
+    input {
+      border: 1px solid #aeb9c9;
+    }
+
+    button {
+      margin-top: 1.5rem;
+      border: 0;
+      background: #2357d9;
+      color: #ffffff;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.65;
+    }
+
+    #status {
+      margin: 1rem 0;
+      line-height: 1.5;
+    }
+
+    .error {
+      color: #a52626;
+    }
+
+    .success {
+      color: #176b3a;
+    }
+
+    [hidden] {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Reset your password</h1>
+    <p id="intro">Use this page to choose a new password for your Haztrack account.</p>
+    <p id="status" role="status" aria-live="polite">Checking your reset link&hellip;</p>
+
+    <form id="reset-form" hidden>
+      <label for="new-password">New password</label>
+      <input
+        id="new-password"
+        name="new-password"
+        type="password"
+        autocomplete="new-password"
+        minlength="6"
+        required>
+
+      <label for="confirm-password">Confirm new password</label>
+      <input
+        id="confirm-password"
+        name="confirm-password"
+        type="password"
+        autocomplete="new-password"
+        minlength="6"
+        required>
+
+      <button id="submit-button" type="submit">Reset password</button>
+    </form>
+
+    <p id="success-message" class="success" hidden>
+      Your password has been reset. You can now sign in with your new password
+      in the Haztrack app.
+    </p>
+  </main>
+
+  <script>
+    (() => {
+      const form = document.getElementById("reset-form");
+      const status = document.getElementById("status");
+      const successMessage = document.getElementById("success-message");
+      const newPassword = document.getElementById("new-password");
+      const confirmPassword = document.getElementById("confirm-password");
+      const submitButton = document.getElementById("submit-button");
+
+      const setStatus = (message, isError = false) => {
+        status.textContent = message;
+        status.className = isError ? "error" : "";
+      };
+
+      const getActionParameters = () => {
+        const searchParameters = new URLSearchParams(window.location.search);
+        if (searchParameters.get("oobCode") || !window.location.hash) {
+          return searchParameters;
+        }
+
+        return new URLSearchParams(window.location.hash.substring(1));
+      };
+
+      const getErrorMessage = (error) => {
+        switch (error.code) {
+          case "auth/expired-action-code":
+            return "This reset link has expired. Request a new reset email.";
+          case "auth/invalid-action-code":
+            return "This reset link is invalid or has already been used.";
+          case "auth/user-disabled":
+            return "This account has been disabled.";
+          case "auth/weak-password":
+            return "Choose a stronger password with at least six characters.";
+          case "auth/network-request-failed":
+            return "A network error occurred. Check your connection and try again.";
+          default:
+            return "We could not reset your password. Request a new reset email and try again.";
+        }
+      };
+
+      const start = async () => {
+        const parameters = getActionParameters();
+        const mode = parameters.get("mode");
+        const actionCode = parameters.get("oobCode");
+
+        if (mode !== "resetPassword" || !actionCode) {
+          setStatus("This reset link is incomplete or invalid.", true);
+          return;
+        }
+
+        // Keep the one-time code in memory instead of leaving it in browser history.
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        try {
+          const email = await window.firebase.auth().verifyPasswordResetCode(actionCode);
+          setStatus(`Choose a new password for ${email}.`);
+          form.hidden = false;
+        } catch (error) {
+          setStatus(getErrorMessage(error), true);
+        }
+
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const password = newPassword.value;
+
+          if (password.length < 6) {
+            setStatus("Choose a password with at least six characters.", true);
+            return;
+          }
+
+          if (password !== confirmPassword.value) {
+            setStatus("The passwords do not match.", true);
+            return;
+          }
+
+          submitButton.disabled = true;
+          setStatus("Resetting your password…");
+
+          try {
+            await window.firebase.auth().confirmPasswordReset(actionCode, password);
+            form.hidden = true;
+            successMessage.hidden = false;
+            setStatus("");
+          } catch (error) {
+            submitButton.disabled = false;
+            setStatus(getErrorMessage(error), true);
+          }
+        });
+      };
+
+      document.addEventListener("DOMContentLoaded", () => {
+        if (!window.firebase) {
+          setStatus("The reset service could not be loaded. Try again later.", true);
+          return;
+        }
+
+        start().catch(() => {
+          setStatus("We could not load this reset link. Request a new reset email and try again.", true);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

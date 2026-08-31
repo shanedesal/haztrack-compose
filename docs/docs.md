@@ -84,6 +84,8 @@ haztrack/
 ├── public/
 │   ├── index.html                       # Firebase Hosting entry page
 │   ├── 404.html                         # Firebase Hosting fallback page
+│   ├── resetPassword/
+│   │   └── index.html                   # Browser password-reset page
 │   └── .well-known/
 │       └── assetlinks.json              # Android App Links association
 └── app/
@@ -686,7 +688,11 @@ Password-reset emails use Firebase's in-app action-link mode. The generated host
 `<PROJECT_ID>.firebaseapp.com/__/auth/links`; `MainActivity` extracts the nested action URL and
 passes its `oobCode` to the reset-password navigation destination. Android App Links must be
 configured and verified for that Firebase Hosting domain. The reset form then verifies the code
-with Firebase before allowing the user to choose a new password.
+with Firebase before allowing the user to choose a new password. If Haztrack is not installed,
+the Firebase Authentication password-reset email template must route to the custom action URL
+`https://<PROJECT_ID>.firebaseapp.com/resetPassword`, served by
+`public/resetPassword/index.html`. The Firebase Web SDK then provides the same verify-and-confirm
+flow in a browser.
 
 The Android App Links association is hosted at
 `public/.well-known/assetlinks.json` and deployed with:
@@ -697,6 +703,17 @@ firebase deploy --only hosting
 
 The association file currently authorizes the debug APK fingerprint for local emulator testing.
 Add the release or Play App Signing fingerprint before distributing a production build.
+
+After deploying Hosting, verify both the association file and browser fallback:
+
+```bash
+curl -i https://<PROJECT_ID>.firebaseapp.com/.well-known/assetlinks.json
+curl -i https://<PROJECT_ID>.firebaseapp.com/resetPassword/
+```
+
+Configure the custom action URL in Firebase Console under Authentication → Templates → the
+password-reset email → Customize action URL. The `ActionCodeSettings.url` in the Android data
+source remains the continue URL carried inside Firebase's action link.
 
 ### 8.4 Session Persistence
 
