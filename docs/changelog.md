@@ -10,8 +10,12 @@ All notable feature additions, updates, bug fixes, and functionality changes are
 - Established `docs/changelog.md` as the change log.
 - Required `docs/docs.md` to remain synchronized when documented features or behavior change.
 
-### Fixed
+### Added
 
-- Completed password-reset deep-link handling by passing Firebase action-code settings, parsing nested Firebase action URLs, and rendering the reset-password screen.
-- The reset flow now opens the app-linked password reset form when Android App Links are verified for the Firebase Hosting domain.
-- Added the Firebase Hosting `assetlinks.json` association for the debug emulator APK and configured its JSON content type.
+- Added a Compose reset-password flow with Firebase reset-code verification, new-password confirmation, validation states, and navigation back to sign-in after success.
+- Added Firebase Hosting configuration and public files, including the Android App Links `assetlinks.json` association and its JSON content-type header.
+
+### Updated
+
+- Updated forgot-password emails to use Firebase in-app action links instead of browser-only password resets.
+- Updated `MainActivity` and navigation to extract nested Firebase action URLs, capture the `oobCode`, and open the reset-password screen through the verified Hosting link.

@@ -79,6 +79,12 @@ haztrack/
 ├── .githooks/
 │   ├── pre-commit                      # Runs lint/detekt before every commit
 │   └── commit-msg                      # Enforces commit message format
+├── firebase.json                       # Firebase Hosting configuration and headers
+├── public/
+│   ├── index.html                       # Firebase Hosting entry page
+│   ├── 404.html                         # Firebase Hosting fallback page
+│   └── .well-known/
+│       └── assetlinks.json              # Android App Links association
 └── app/
     ├── build.gradle.kts                # App module: plugins, android{}, dependencies
     ├── google-services.json            # Firebase config — GITIGNORED, never commit this
@@ -124,6 +130,8 @@ haztrack/
             │       ├── SignUpWithEmailUseCase.kt
             │       ├── SignInWithGoogleUseCase.kt
             │       ├── SendPasswordResetEmailUseCase.kt
+            │       ├── VerifyPasswordResetCodeUseCase.kt
+            │       ├── ConfirmPasswordResetUseCase.kt
             │       └── SignOutUseCase.kt
             │
             ├── presentation/           # PRESENTATION LAYER: Compose UI + ViewModels
@@ -146,10 +154,14 @@ haztrack/
             │   │   │   ├── RegisterViewModel.kt
             │   │   │   ├── RegisterUiState.kt
             │   │   │   └── RegisterEvent.kt
-            │   │   └── forgotpassword/
-            │   │       ├── ForgotPasswordScreen.kt
-            │   │       ├── ForgotPasswordViewModel.kt
-            │   │       └── ForgotPasswordUiState.kt
+            │   │   ├── forgotpassword/
+            │   │   │   ├── ForgotPasswordScreen.kt
+            │   │   │   ├── ForgotPasswordViewModel.kt
+            │   │   │   └── ForgotPasswordUiState.kt
+            │   │   └── resetpassword/
+            │   │       ├── ResetPasswordScreen.kt
+            │   │       ├── ResetPasswordViewModel.kt
+            │   │       └── ResetPasswordUiState.kt
             │   │
             │   ├── home/
             │   │   ├── HomeScreen.kt
