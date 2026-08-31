@@ -8,5 +8,14 @@ complexity:
   LongMethod:
     active: true
     allowedLines: 60
-    ignoreAnnotated: 
+    ignoreAnnotated:
+      - Composable
+  TooManyFunctions:
+    active: true
+    # Form ViewModels have one named event per field; that is MVVM, not a god class.
+    # Detekt 2.0 property names (1.x used thresholdInFiles / thresholdInClasses).
+    allowedFunctionsPerFile: 20
+    allowedFunctionsPerClass: 20
+    # Small @Composable helpers are the intended Compose pattern, not a complexity smell.
+    ignoreAnnotatedFunctions:
       - Composable

@@ -3,6 +3,8 @@ package com.danger.haztrack.presentation.auth.register
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.danger.haztrack.R
+import com.danger.haztrack.domain.model.PhotoSource
+import com.danger.haztrack.domain.model.UserProfile
 import com.danger.haztrack.domain.usecase.auth.AuthUseCases
 import com.danger.haztrack.domain.usecase.profile.UserProfileUseCases
 import com.danger.haztrack.presentation.auth.common.toAuthErrorMessageRes
@@ -80,11 +82,14 @@ class RegisterViewModel @Inject constructor(
                 // self-heals via EnsureUserProfileUseCase the next time the user opens it.
                 runCatching {
                     userProfileUseCases.saveUserProfile(
-                        userId = authUser.id,
-                        firstName = state.firstName,
-                        lastName = state.lastName,
-                        email = authUser.email,
-                        photoUrl = authUser.photoUrl,
+                        UserProfile(
+                            id = authUser.id,
+                            firstName = state.firstName,
+                            lastName = state.lastName,
+                            email = authUser.email,
+                            photoUrl = authUser.photoUrl,
+                            photoSource = PhotoSource.NONE,
+                        ),
                     )
                 }
                 _uiState.update { it.copy(isLoading = false) }

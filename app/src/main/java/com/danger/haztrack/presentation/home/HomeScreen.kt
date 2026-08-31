@@ -46,8 +46,8 @@ private fun HomeContent(
     onNavigateToMyReports: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val greetingName = uiState.user?.displayName?.takeIf { it.isNotBlank() }
-        ?: uiState.user?.email
+    val greetingName = uiState.displayName?.takeIf { it.isNotBlank() }
+        ?: uiState.email
         ?: stringResource(R.string.home_greeting_fallback_name)
 
     Column(

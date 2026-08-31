@@ -1,6 +1,6 @@
 # Haztrack — Developer Documentation
 
-> **Current state:** Authentication + user profile scaffold. The full hazard-tracking product domain has not been implemented yet. The remaining placeholder packages (`data/local`, `data/service`, `util`, `presentation/common`) are empty and reserved for future features.
+> **Current state:** Authentication + editable user profile (with secure Cloudinary photo uploads via a self-hosted backend). The full hazard-tracking product domain has not been implemented yet. The remaining placeholder packages (`data/local`, `data/service`, `presentation/common`) are empty and reserved for future features.
 
 ---
 
@@ -23,11 +23,13 @@
    - [Session Persistence](#84-session-persistence)
    - [Sign Out](#85-sign-out)
    - [User Profile](#86-user-profile)
+   - [Editable Profile Fields and Secure Photo Uploads](#87-editable-profile-fields-and-secure-photo-uploads)
 9. [UI Components](#9-ui-components)
 10. [Error Handling](#10-error-handling)
 11. [Build, Lint, and Code Quality](#11-build-lint-and-code-quality)
 12. [Setting Up Locally](#12-setting-up-locally)
 13. [Firebase Hosting and Password-Reset Deep Links](deeplinks-firebase-hosting.md)
+14. [Backend Image Upload Specification](backend-image-upload-spec.md)
 
 ---
 
@@ -48,7 +50,7 @@
 | My Reports | `my_reports` | Placeholder list of the signed-in user's hazard reports |
 | Notifications | `notifications` | Placeholder for hazard alerts and app notifications |
 | Settings | `settings` | Signed-in user info (tap to open Profile) and Sign Out |
-| Profile | `profile` | The signed-in user's first name, last name, email, and profile picture |
+| Profile | `profile` | View and edit the signed-in user's first name, last name, date of birth, gender, phone number, email (read-only), and profile picture |
 
 `Home`, `Report`, `My Reports`, `Notifications`, and `Settings` are the 5 tabs of the post-login navigation shell — see [Section 7](#7-navigation). `Report`, `My Reports`, and `Notifications` currently show only an empty-state message; there is no report/notification data source yet. `Profile` is opened from Settings and is not a bottom-nav tab (no `MainScaffold`), matching the pattern used by `ForgotPassword`/`ResetPassword`.
 
@@ -68,6 +70,10 @@
 | Google Sign-In | AndroidX Credentials + Google Identity | 1.6.0 / 1.2.0 |
 | Coroutines | Kotlin Coroutines + Play Services adapter | 1.11.0 |
 | Image loading | Coil (`coil-compose`, `coil-network-okhttp`) | 3.6.0 |
+| Backend REST calls | Retrofit + Moshi converter | 3.0.0 |
+| JSON serialization | Moshi (`moshi-kotlin-codegen` via KSP) | 1.15.2 |
+| HTTP client | OkHttp + `logging-interceptor` (debug-only logging) | 4.12.0 |
+| Phone number validation | `libphonenumber-android` (io.michaelrocks) | 9.0.5 |
 | Logging | Timber | 5.0.1 |
 | Static Analysis | Detekt | 2.0.0-alpha.6 |
 | Build | Gradle (Kotlin DSL) | 9.3.1 wrapper |
@@ -120,30 +126,42 @@ haztrack/
             │
             ├── di/                     # Dependency Injection (Hilt modules)
             │   ├── FirebaseModule.kt   # Provides FirebaseAuth + FirebaseFirestore singletons
-            │   └── RepositoryModule.kt # Binds *RepositoryImpl → their domain interfaces
+            │   ├── RepositoryModule.kt # Binds *RepositoryImpl → their domain interfaces
+            │   ├── NetworkModule.kt    # Retrofit + OkHttp + Moshi + Firebase-ID-token auth interceptor
+            │   └── PhoneNumberModule.kt # Provides the (Context-backed) PhoneNumberUtil singleton
             │
             ├── data/                   # DATA LAYER: knows about Firebase, databases, APIs
             │   ├── remote/
             │   │   ├── api/
             │   │   │   ├── AuthRemoteDataSource.kt  # Calls Firebase Auth directly
-            │   │   │   └── UserRemoteDataSource.kt  # Reads/writes the Firestore `users` collection
+            │   │   │   ├── UserRemoteDataSource.kt  # Reads/writes the Firestore `users` collection
+            │   │   │   ├── UploadApi.kt             # Retrofit service interface for the image-upload backend
+            │   │   │   └── ImageUploadRemoteDataSource.kt # Builds multipart requests, calls UploadApi
             │   │   └── dto/
-            │   │       └── UserProfileDto.kt        # Firestore document shape (firstName, lastName, email, photoUrl)
+            │   │       ├── UserProfileDto.kt        # Firestore document shape (name/photo/DOB/gender/phone)
+            │   │       └── UploadResponseDto.kt     # Moshi DTO for the backend's upload response
             │   ├── repository/
             │   │   ├── auth/
             │   │   │   └── AuthRepositoryImpl.kt    # Implements domain AuthRepository
-            │   │   └── profile/
-            │   │       └── UserProfileRepositoryImpl.kt  # Implements domain UserProfileRepository
+            │   │   ├── profile/
+            │   │   │   └── UserProfileRepositoryImpl.kt  # Implements domain UserProfileRepository
+            │   │   └── upload/
+            │   │       └── ImageUploadRepositoryImpl.kt  # Implements domain ImageUploadRepository
             │   ├── local/              # (empty — future: Room database)
             │   └── service/            # (empty — future: background services)
             │
             ├── domain/                 # DOMAIN LAYER: pure Kotlin, zero Android dependencies
             │   ├── model/
             │   │   ├── AuthUser.kt     # App's auth/session model (NOT FirebaseUser)
-            │   │   └── UserProfile.kt  # Firestore-backed profile model (firstName, lastName, email, photoUrl)
+            │   │   ├── UserProfile.kt  # Firestore-backed profile model (name/photo/DOB/gender/phone)
+            │   │   ├── PhotoSource.kt  # NONE | GOOGLE | CLOUDINARY — who "owns" the current photoUrl
+            │   │   ├── Gender.kt       # Fixed gender options
+            │   │   ├── UploadContext.kt # Which backend upload endpoint/whitelist an upload targets
+            │   │   └── UploadedImage.kt # Result of a successful upload (secureUrl, publicId)
             │   ├── repository/
             │   │   ├── auth/AuthRepository.kt            # Contract the auth data layer must fulfil
-            │   │   └── profile/UserProfileRepository.kt  # Contract the profile data layer must fulfil
+            │   │   ├── profile/UserProfileRepository.kt  # Contract the profile data layer must fulfil
+            │   │   └── upload/ImageUploadRepository.kt   # Contract the image-upload data layer must fulfil
             │   └── usecase/
             │       ├── auth/
             │       │   ├── AuthInputValidation.kt       # Email/password/name validation rules
@@ -156,11 +174,16 @@ haztrack/
             │       │   ├── VerifyPasswordResetCodeUseCase.kt
             │       │   ├── ConfirmPasswordResetUseCase.kt
             │       │   └── SignOutUseCase.kt
-            │       └── profile/
-            │           ├── UserProfileUseCases.kt       # Facade: bundles all profile use cases
-            │           ├── GetUserProfileUseCase.kt
-            │           ├── SaveUserProfileUseCase.kt    # Writes an explicit profile (used by registration)
-            │           └── EnsureUserProfileUseCase.kt  # Creates a profile doc on the fly if one is missing
+            │       ├── profile/
+            │       │   ├── UserProfileUseCases.kt       # Facade: bundles all profile use cases
+            │       │   ├── GetUserProfileUseCase.kt
+            │       │   ├── SaveUserProfileUseCase.kt    # Writes a full UserProfile (name/DOB/gender/phone/photo)
+            │       │   ├── EnsureUserProfileUseCase.kt  # Creates a profile doc on the fly if one is missing
+            │       │   └── ProfileInputValidation.kt    # Name/date-of-birth validation for the edit form
+            │       └── upload/
+            │           ├── UploadUseCases.kt            # Facade: bundles the upload use cases
+            │           ├── UploadImageUseCase.kt        # Uploads bytes for a given UploadContext
+            │           └── DeleteUploadedImageUseCase.kt # Deletes the caller's own asset for a context
             │
             ├── presentation/           # PRESENTATION LAYER: Compose UI + ViewModels
             │   ├── navigation/
@@ -208,18 +231,21 @@ haztrack/
             │   │   ├── SettingsViewModel.kt
             │   │   ├── SettingsUiState.kt
             │   │   └── SettingsEvent.kt
-            │   ├── profile/              # "Profile" screen — first/last name, email, photo
+            │   ├── profile/              # "Profile" screen — editable name/DOB/gender/phone/photo
             │   │   ├── ProfileScreen.kt
             │   │   ├── ProfileViewModel.kt
-            │   │   └── ProfileUiState.kt
+            │   │   ├── ProfileUiState.kt
+            │   │   ├── ProfilePhotoPicker.kt   # Reads + compresses a picked photo (needs Context)
+            │   │   └── UploadErrorMapper.kt    # Maps upload HTTP failures → string resource IDs
             │   │
             │   ├── components/         # Reusable Compose components shared across screens
             │   │   ├── AuthDivider.kt           # "OR" divider line
-            │   │   ├── AuthTopBar.kt            # Back-button top bar
+            │   │   ├── AuthTopBar.kt            # Back-button top bar with an optional trailing actions slot
             │   │   ├── GoogleSignInButton.kt    # Branded Google button
             │   │   ├── HaztrackPasswordField.kt # Password field with show/hide toggle
             │   │   ├── HaztrackPrimaryButton.kt # Primary CTA button with loading state
             │   │   ├── HaztrackTextField.kt     # Styled text input field
+            │   │   ├── PhoneNumberField.kt      # Country-code chip + searchable picker + number input
             │   │   ├── IconBadge.kt             # Large tonal circular icon badge
             │   │   ├── EmptyStateMessage.kt     # Icon + title + message for placeholder screens
             │   │   ├── QuickActionCard.kt       # Tonal shortcut card used on the Home dashboard
@@ -233,7 +259,11 @@ haztrack/
             │   │
             │   └── common/             # (empty — future: shared presentation utilities)
             │
-            └── util/                   # (empty — future: extension functions, helpers)
+            └── util/
+                ├── CountryInfo.kt         # Region code + dial code + display name + flag emoji
+                ├── CountryCodeProvider.kt # Builds the country list + validates numbers via PhoneNumberUtil
+                ├── ImageCompression.kt    # Downsamples/re-encodes a picked image before upload
+                └── IsoDateFormat.kt       # ISO-8601 `yyyy-MM-dd` ⇄ epoch-millis conversions for DatePicker
 ```
 
 ---
@@ -396,6 +426,39 @@ suspend fun saveUserProfile(userId: String, profile: UserProfileDto) {
 
 `UserProfileRepositoryImpl` implements the domain `UserProfileRepository` interface and converts `UserProfileDto` ↔ `UserProfile` (the domain model), exactly like `AuthRepositoryImpl` converts `FirebaseUser` ↔ `AuthUser`. `getUserProfile` also wraps the Firestore call in `runCatching` and logs failures with Timber rather than throwing, since a transient network failure while loading a profile shouldn't crash the Profile screen — see [8.6](#86-user-profile) for how the ViewModel handles a `null` result.
 
+#### `UploadApi`, `ImageUploadRemoteDataSource`, and `ImageUploadRepositoryImpl`
+
+```
+di/NetworkModule.kt
+data/remote/api/UploadApi.kt
+data/remote/api/ImageUploadRemoteDataSource.kt
+data/repository/upload/ImageUploadRepositoryImpl.kt
+```
+
+Profile-picture (and, later, hazard-report) uploads go through our own backend rather than talking to Cloudinary directly from the app — see [8.7](#87-editable-profile-fields-and-secure-photo-uploads) for why. `NetworkModule` provides a shared Retrofit/OkHttp/Moshi stack:
+
+```kotlin
+@Provides
+@Singleton
+fun provideAuthInterceptor(firebaseAuth: FirebaseAuth): Interceptor {
+    return Interceptor { chain ->
+        val idToken = firebaseAuth.currentUser?.let { user ->
+            runCatching { Tasks.await(user.getIdToken(false)).token }.getOrNull()
+        }
+        val request = chain.request().newBuilder()
+            .apply { idToken?.let { addHeader("Authorization", "Bearer $it") } }
+            .build()
+        chain.proceed(request)
+    }
+}
+```
+
+Every request to our backend automatically carries the signed-in user's Firebase ID token — callers never attach it manually. Since `Interceptor.intercept` is synchronous (it runs on OkHttp's own dispatcher thread, not a coroutine), fetching the token blocks on `Tasks.await(...)` rather than using `.await()`; this is the standard way to bridge a GMS `Task` into non-suspending code. Request/response bodies are only logged (via `HttpLoggingInterceptor`) when `BuildConfig.DEBUG` is true, so tokens and image bytes are never written to logcat in a release build.
+
+`UploadApi` is a small Retrofit interface (`@Multipart @POST("uploads/{context}")`, `@DELETE("uploads/{context}")`). `ImageUploadRemoteDataSource` builds the `MultipartBody.Part` from the raw bytes and calls it, keeping Retrofit/OkHttp types out of the repository layer — the same pattern `AuthRemoteDataSource` uses to keep `FirebaseUser` out of `AuthRepository`. `ImageUploadRepositoryImpl` maps the response DTO to the domain `UploadedImage` model and treats `delete` as best-effort (a failed cleanup call is logged, not thrown, so removing a photo locally never gets blocked by a flaky network).
+
+This same `Retrofit`/`OkHttpClient` pair is meant to be reused by any future REST endpoint on our own backend (e.g. hazard reports) instead of each feature building its own HTTP client.
+
 **Security rules** (`firestore.rules`, at the repo root) restrict each `users/{uid}` document to the signed-in user with that uid:
 
 ```
@@ -444,8 +507,16 @@ data class UserProfile(
     val lastName: String,
     val email: String?,
     val photoUrl: String?,
+    val photoSource: PhotoSource = PhotoSource.NONE,
+    val dateOfBirth: String? = null,       // ISO-8601 yyyy-MM-dd
+    val gender: Gender? = null,
+    val phoneRegionCode: String? = null,   // e.g. "PH"
+    val phoneDialCode: String? = null,     // e.g. "+63"
+    val phoneNumber: String? = null,       // national significant number, digits only
 )
 ```
+
+`PhotoSource` (`NONE | GOOGLE | CLOUDINARY`) records who "owns" the current `photoUrl`: a `GOOGLE` photo is never touched by our backend, while a `CLOUDINARY` photo is one we uploaded and can safely overwrite or delete when the user changes/removes their picture. `Gender` is a fixed four-option enum (`MALE`, `FEMALE`, `OTHER`, `PREFER_NOT_TO_SAY`). The phone number is stored as three separate fields (region + dial code + national number) rather than one string, so a shared dial code (e.g. `+1` for both the US and Canada) doesn't lose the region needed for validation/formatting.
 
 #### `UserProfileRepository` — the Interface Contract
 
@@ -467,7 +538,8 @@ domain/usecase/profile/
 ```
 
 - **`GetUserProfileUseCase`** — a thin pass-through to `UserProfileRepository.getUserProfile`.
-- **`SaveUserProfileUseCase`** — writes an explicit `UserProfile` (used right after email/password registration, where the user typed their own first/last name).
+- **`SaveUserProfileUseCase`** — persists a full `UserProfile` (name, DOB, gender, phone, photo). Used right after email/password registration and by every edit/photo change on `ProfileScreen`.
+- **`ProfileInputValidation`** — pure boolean checks for the edit form (non-blank names; date of birth not in the future). Unlike `AuthInputValidation`, it returns booleans instead of throwing, since `ProfileViewModel` needs a distinct, field-specific error message per failure rather than one generic message. Phone-number validity is checked separately via `CountryCodeProvider.isValidNumber` (see [Section 9](#9-ui-components)), since that needs `libphonenumber`.
 - **`EnsureUserProfileUseCase`** — the interesting one. It checks whether a profile document already exists; if so it returns it as-is. If not, it derives a best-effort name and creates one:
 
 ```kotlin
@@ -481,15 +553,31 @@ suspend operator fun invoke(user: AuthUser, firstName: String? = null, lastName:
         lastName = lastName?.trim()?.takeIf { it.isNotBlank() } ?: derivedLastName ?: "",
         email = user.email,
         photoUrl = user.photoUrl,
+        photoSource = if (user.photoUrl != null) PhotoSource.GOOGLE else PhotoSource.NONE,
     )
     userProfileRepository.saveUserProfile(profile)
     return profile
 }
 ```
 
-`EnsureUserProfileUseCase` is called after **every** successful sign-in (email and Google, see [8.1](#81-firebase-email-authentication)/[8.2](#82-google-sign-in)) and again when `ProfileScreen` loads. This makes profile creation self-healing: a Google account signing in for the first time, an account created before this feature existed, or a registration whose Firestore write failed will all end up with a real profile document instead of a permanently blank one — no manual migration step required. When no explicit name is supplied, it splits `AuthUser.displayName` on the first space (Firebase Auth's only name field) as the best available fallback.
+`EnsureUserProfileUseCase` is called after **every** successful sign-in (email and Google, see [8.1](#81-firebase-email-authentication)/[8.2](#82-google-sign-in)) and again when `ProfileScreen`, `HomeScreen`, or `SettingsScreen` load. This makes profile creation self-healing: a Google account signing in for the first time, an account created before this feature existed, or a registration whose Firestore write failed will all end up with a real profile document instead of a permanently blank one — no manual migration step required. When no explicit name is supplied, it splits `AuthUser.displayName` on the first space (Firebase Auth's only name field) as the best available fallback. It also seeds `photoSource = GOOGLE` the first time a doc is created for an account with a Google photo, so a later custom upload knows it's safe to replace that photo — see [8.7](#87-editable-profile-fields-and-secure-photo-uploads).
 
-**`UserProfileUseCases`** groups all three the same way `AuthUseCases` groups the auth use cases, so ViewModels inject one object instead of three.
+**`UserProfileUseCases`** groups all profile use cases the same way `AuthUseCases` groups the auth use cases, so ViewModels inject one object instead of several.
+
+#### `ImageUploadRepository` — the Upload Interface Contract
+
+```
+domain/repository/upload/ImageUploadRepository.kt
+```
+
+```kotlin
+interface ImageUploadRepository {
+    suspend fun upload(context: UploadContext, bytes: ByteArray, mimeType: String): UploadedImage
+    suspend fun delete(context: UploadContext)
+}
+```
+
+`UploadContext` is a small enum (`PROFILE_PICTURE("profile-picture")` today) mapping to the backend's whitelisted upload endpoints — a future hazard-report photo feature adds a case here rather than a new pipeline. `UploadImageUseCase`/`DeleteUploadedImageUseCase` (grouped as `UploadUseCases`) are thin pass-throughs to this repository, mirroring the profile use cases' style. See [8.7](#87-editable-profile-fields-and-secure-photo-uploads) for the full upload flow and `backend-image-upload-spec.md` for the backend contract.
 
 #### `AuthRepository` — the Interface Contract
 
@@ -706,6 +794,19 @@ FirebaseFirestore (from FirebaseModule)
                 → injected into each profile UseCase
                     → injected into UserProfileUseCases
                         → injected into each ViewModel (alongside AuthUseCases)
+
+Retrofit/OkHttp/Moshi (from NetworkModule, using BuildConfig.BACKEND_BASE_URL + FirebaseAuth)
+    → provides UploadApi
+        → injected into ImageUploadRemoteDataSource
+            → injected into ImageUploadRepositoryImpl
+                → bound as ImageUploadRepository (from RepositoryModule)
+                    → injected into each upload UseCase
+                        → injected into UploadUseCases
+                            → injected into ProfileViewModel (alongside UserProfileUseCases)
+
+PhoneNumberUtil (from PhoneNumberModule, needs an ApplicationContext to load metadata from assets)
+    → injected into CountryCodeProvider
+        → injected into ProfileViewModel
 ```
 
 ---
@@ -932,21 +1033,70 @@ After sign-out, `SettingsEvent.NavigateToLogin` is sent and `HaztrackNavHost` na
 
 ### 8.6 User Profile
 
-The Settings screen's user info card is tappable (a chevron hints at this) and navigates to the `profile` route, opening `ProfileScreen`. Like `ForgotPasswordScreen`/`ResetPasswordScreen`, it is a standalone `Scaffold` with an `AuthTopBar` (back arrow + "Profile" title) rather than a `MainScaffold` tab, since it's a detail screen reached from Settings, not a bottom-nav destination.
+The Settings screen's user info card is tappable (a chevron hints at this) and navigates to the `profile` route, opening `ProfileScreen`. Like `ForgotPasswordScreen`/`ResetPasswordScreen`, it is a standalone `Scaffold` with an `AuthTopBar` (back arrow + "Profile" title, plus a trailing Edit/Save/Cancel action) rather than a `MainScaffold` tab, since it's a detail screen reached from Settings, not a bottom-nav destination.
 
-Profile data (first name, last name, email, photo) is stored in Firestore, not on `AuthUser` — see [5.1](#51-data-layer)/[5.2](#52-domain-layer) for the `UserProfile` model and repository. `ProfileViewModel` combines both sources:
+Profile data (first name, last name, email, photo, date of birth, gender, phone number) is stored in Firestore, not on `AuthUser` — see [5.1](#51-data-layer)/[5.2](#52-domain-layer) for the `UserProfile` model and repository. **Every profile read anywhere in the app (Home's greeting, the Settings user card, and Profile itself) comes from this Firestore document, never from `AuthUser.displayName`/`photoUrl`** — see [5.2](#52-domain-layer) for how `EnsureUserProfileUseCase` seeds it once from the Google account and never overwrites it again, keeping later edits independent of the linked Google account.
+
+`ProfileViewModel` combines both sources:
 
 1. Reads `AuthUseCases.getCurrentUser()` synchronously (id, email, photo, `isGoogleAccount`) so the screen has *something* to show immediately.
-2. Launches a coroutine calling `UserProfileUseCases.ensureUserProfile(authUser)`, which fetches the Firestore document — or creates one on the fly if it's missing (see [5.2](#52-domain-layer)) — and updates `ProfileUiState` with the authoritative `firstName`/`lastName` (and `email`/`photoUrl`, preferring the Firestore values but falling back to the auth ones if Firestore doesn't have them).
+2. Launches a coroutine calling `UserProfileUseCases.ensureUserProfile(authUser)`, which fetches the Firestore document — or creates one on the fly if it's missing (see [5.2](#52-domain-layer)) — and updates `ProfileUiState` with the authoritative fields (preferring the Firestore values but falling back to the auth ones if Firestore doesn't have them yet).
 3. `ProfileUiState.isLoading` starts `true`; `ProfileScreen` shows a centered `CircularProgressIndicator` until the Firestore call completes, then reveals the profile content.
 
 The screen renders:
 
-- A large `UserAvatar` — the user's photo (loaded over the network with Coil) if a `photoUrl` is available (always true for Google accounts, never set for new email/password accounts), otherwise a tonal circle with the user's initial.
+- A large `UserAvatar` with a small camera badge, tappable at any time (independent of edit mode) to change the photo — see [8.7](#87-editable-profile-fields-and-secure-photo-uploads).
 - A "Signed in with Google" badge, shown only when `isGoogleAccount` is `true`.
-- A card with three rows — **First name**, **Last name**, **Email**. Any missing value falls back to a "Not provided" placeholder instead of crashing or showing blank text.
+- A "Remove photo" button, shown only when the current photo is one we uploaded (`photoSource == CLOUDINARY`).
+- A card with rows for **First name**, **Last name**, **Email** (always read-only), **Date of birth**, **Gender**, and **Phone number**. Any missing value falls back to a "Not provided" placeholder instead of crashing or showing blank text.
 
 Because both Settings and Profile need to render "a photo or an initials circle", that logic lives in the shared `UserAvatar` component (see [Section 9](#9-ui-components)) instead of being duplicated.
+
+### 8.7 Editable Profile Fields and Secure Photo Uploads
+
+Tapping the **Edit** icon in the Profile top bar flips `ProfileUiState.isEditing = true`. There is no separate edit screen/route — the same `ProfileScreen`/`ProfileViewModel` toggle between read-only rows and editable fields, which avoids Navigation Compose back-stack staleness issues since `ProfileViewModel` is scoped to one nav entry:
+
+- **First/last name** become `HaztrackTextField`s.
+- **Date of birth** becomes a read-only-looking field (an `OutlinedTextField` with `enabled = false` but colors overridden to look enabled, plus a transparent clickable overlay) that opens a Material 3 `DatePickerDialog`. The picker's epoch-millis selection is converted to/from the stored ISO-8601 `yyyy-MM-dd` string by `util/IsoDateFormat.kt`, using `SimpleDateFormat` (UTC) rather than `java.time` so no core-library desugoring is needed on `minSdk 24`.
+- **Gender** becomes an `ExposedDropdownMenuBox` with the four fixed `Gender` options.
+- **Phone number** becomes a `PhoneNumberField` (see [Section 9](#9-ui-components)): a country-code chip (flag + dial code) next to the national-number input. The country list and validation (`isValidNumber`) come from `util/CountryCodeProvider.kt`, backed by `io.michaelrocks:libphonenumber-android`'s `PhoneNumberUtil` (this Android port has no context-free `getInstance()`, so `PhoneNumberUtil.createInstance(context)` is provided once as a Hilt singleton via `di/PhoneNumberModule.kt`). The flag is rendered as a Unicode regional-indicator emoji computed from the 2-letter region code — no flag image assets needed.
+- **Email** stays read-only in both modes (email changes are a separate, more sensitive Firebase Auth operation and are out of scope here).
+
+**Save** runs `ProfileInputValidation` (non-blank names, date of birth not in the future) plus a phone-number check via `CountryCodeProvider.isValidNumber`, showing a field-specific error message on failure; on success it calls `UserProfileUseCases.saveUserProfile(...)` with the full updated `UserProfile`. **Cancel** restores the fields from the last-saved profile and exits edit mode without saving.
+
+#### Photo uploads
+
+Changing the photo is independent of the name/DOB/gender/phone edit mode — tapping the avatar's camera badge works whether or not `isEditing` is true:
+
+```mermaid
+sequenceDiagram
+    participant Screen as ProfileScreen
+    participant VM as ProfileViewModel
+    participant UC as UploadImageUseCase
+    participant Repo as ImageUploadRepositoryImpl
+    participant BE as Backend (Express)
+    participant CDY as Cloudinary
+
+    Screen->>Screen: PickVisualMedia photo picker
+    Screen->>Screen: ProfilePhotoPicker reads Uri, compresses to JPEG
+    Screen->>VM: onPhotoPicked(bytes, "image/jpeg")
+    VM->>UC: invoke(PROFILE_PICTURE, bytes, mimeType)
+    UC->>Repo: upload(context, bytes, mimeType)
+    Repo->>BE: POST /uploads/profile-picture (Bearer Firebase ID token, multipart file)
+    BE->>BE: verify ID token, re-validate/re-encode image, strip EXIF
+    BE->>CDY: upload_stream(publicId = uid, folder, overwrite)
+    CDY-->>BE: secureUrl, publicId
+    BE-->>Repo: 200 { secureUrl, publicId, context }
+    Repo-->>UC: UploadedImage
+    UC-->>VM: UploadedImage
+    VM->>VM: saveUserProfile(photoUrl = secureUrl, photoSource = CLOUDINARY)
+```
+
+**The app never talks to Cloudinary directly and never sees a Cloudinary API secret.** It uploads raw image bytes to our own backend (authenticated with the Firebase ID token attached automatically by `NetworkModule`'s interceptor); the backend independently validates, strips metadata from, and re-encodes the image before pushing it to Cloudinary with server-only credentials. The full backend contract — endpoints, the processing pipeline, and the security hardening checklist — is documented separately in [`backend-image-upload-spec.md`](backend-image-upload-spec.md) so the Android code and a self-hosted Node.js/Express backend agree on one source of truth.
+
+Client-side, `ProfilePhotoPicker` (instantiated in the Screen, not the ViewModel — the same reasoning as `GoogleAuthClient`, since only the Screen has an Activity `Context`) reads the picked `Uri` via `ContentResolver` and calls `util/ImageCompression.kt` to downsample/re-encode it to a JPEG capped at ~1280px / quality 85. This is defense-in-depth and a bandwidth saving only: the backend re-validates and re-encodes every upload regardless, so a tampered or oversized client-side result can't bypass server-side checks.
+
+On a successful upload, `ProfileViewModel` immediately saves `photoUrl` (the Cloudinary secure URL) and `photoSource = CLOUDINARY` — this does not wait for the text-field Save button. **Remove photo** deletes the backend's Cloudinary asset (best-effort; a failure is logged but doesn't block the rest of the flow) and reverts `photoUrl`/`photoSource` to the Google photo if `isGoogleAccount`, or to `null`/`NONE` (initials avatar) otherwise. Upload failures are mapped by `UploadErrorMapper.kt` to specific messages for "too large" (413), "unsupported type" (415), and "rate limited" (429) responses, falling back to a generic upload-failed message otherwise.
 
 ---
 
@@ -961,7 +1111,8 @@ Reusable composables shared across screens live in `presentation/components/`.
 | `HaztrackPrimaryButton` | Primary CTA button; shows a `CircularProgressIndicator` when `isLoading = true` |
 | `GoogleSignInButton` | Outlined button with the Google logo and "Continue with Google" text |
 | `AuthDivider` | A horizontal rule with "OR" text in the centre |
-| `AuthTopBar` | A `TopAppBar` with a back arrow and an optional title (used on Register, ForgotPassword, ResetPassword, and Profile) |
+| `AuthTopBar` | A `TopAppBar` with a back arrow, an optional title, and an optional trailing `actions` slot (used on Register, ForgotPassword, ResetPassword, and Profile — Profile uses `actions` for its Edit/Save/Cancel buttons) |
+| `PhoneNumberField` | Country-code chip (flag + dial code) + national-number input; the chip opens a searchable bottom-sheet country picker built from `CountryCodeProvider` |
 | `IconBadge` | A large tonal circular badge spotlighting a single icon (auth status screens, empty states) |
 | `EmptyStateMessage` | Centered icon + title + message for screens with no real data yet (Report, My Reports, Notifications) |
 | `QuickActionCard` | Flat tonal shortcut card with an icon, title, and subtitle (used on the Home dashboard) |
@@ -1007,6 +1158,8 @@ ViewModels must not hold a reference to `Context` (which is needed to resolve st
 
 Produces a debug APK in `app/build/outputs/apk/debug/`. This is the standard build-check command.
 
+Moshi JSON adapters are generated with **KSP** (`ksp(libs.moshi.kotlin.codegen)`), not kapt. Hilt's `hiltJavaCompile*` tasks still copy every KSP processor onto javac's annotation-processor path ([dagger#4116](https://github.com/google/dagger/issues/4116)), which would load Moshi's deprecated kapt processor and print a false "migrate to KSP" warning. `app/build.gradle.kts` filters `moshi-kotlin-codegen` off those tasks only; KSP codegen is unchanged.
+
 ### Static Analysis (Detekt)
 
 ```bash
@@ -1014,6 +1167,8 @@ Produces a debug APK in `app/build/outputs/apk/debug/`. This is the standard bui
 ```
 
 Detekt is a Kotlin static analysis tool. Rules are configured in `config/detekt/detekt.yml`. It catches code style issues, complexity problems, and potential bugs before they reach review.
+
+Compose-specific exceptions live in that YAML: `FunctionNaming` and `LongMethod` ignore `@Composable` (PascalCase names and longer declarative trees are the Compose convention), and `TooManyFunctions` ignores `@Composable` helpers via `ignoreAnnotatedFunctions`. Ordinary functions (ViewModels, utilities) are allowed up to 20 per file/class so a form ViewModel can keep one named `onXChange` per field.
 
 ### Git Hooks
 
@@ -1067,6 +1222,12 @@ git config core.hooksPath .githooks
    firebase deploy --only firestore:rules
    ```
    (This is separate from `firebase deploy --only hosting`, which only deploys the password-reset browser fallback.)
+
+8. **(Optional) Point the app at your local image-upload backend.** Profile-picture uploads call a self-hosted backend — see [`backend-image-upload-spec.md`](backend-image-upload-spec.md) for what to build. Add its base URL to your (gitignored) `local.properties`:
+   ```properties
+   BACKEND_BASE_URL=http://10.0.2.2:4000/api/v1/
+   ```
+   `10.0.2.2` is the Android emulator's alias for your host machine's `localhost`, and is used automatically if this property is omitted. A physical device needs `adb reverse tcp:4000 tcp:4000` or a tunnel (e.g. ngrok) to reach a backend running on your development machine — see the spec doc's hardening checklist. Without a running backend, everything except changing the profile photo still works.
 
 ### Key Files Never to Commit
 

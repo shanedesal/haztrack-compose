@@ -2,6 +2,8 @@ package com.danger.haztrack.data.repository.profile
 
 import com.danger.haztrack.data.remote.api.UserRemoteDataSource
 import com.danger.haztrack.data.remote.dto.UserProfileDto
+import com.danger.haztrack.domain.model.Gender
+import com.danger.haztrack.domain.model.PhotoSource
 import com.danger.haztrack.domain.model.UserProfile
 import com.danger.haztrack.domain.repository.profile.UserProfileRepository
 import timber.log.Timber
@@ -31,6 +33,12 @@ class UserProfileRepositoryImpl @Inject constructor(
             lastName = lastName,
             email = email,
             photoUrl = photoUrl,
+            photoSource = photoSource.toPhotoSourceOrDefault(),
+            dateOfBirth = dateOfBirth,
+            gender = gender.toGenderOrNull(),
+            phoneRegionCode = phoneRegionCode,
+            phoneDialCode = phoneDialCode,
+            phoneNumber = phoneNumber,
         )
     }
 
@@ -40,6 +48,22 @@ class UserProfileRepositoryImpl @Inject constructor(
             lastName = lastName,
             email = email,
             photoUrl = photoUrl,
+            photoSource = photoSource.name,
+            dateOfBirth = dateOfBirth,
+            gender = gender?.name,
+            phoneRegionCode = phoneRegionCode,
+            phoneDialCode = phoneDialCode,
+            phoneNumber = phoneNumber,
         )
+    }
+
+    private fun String?.toPhotoSourceOrDefault(): PhotoSource {
+        return this?.let { value ->
+            runCatching { PhotoSource.valueOf(value) }.getOrNull()
+        } ?: PhotoSource.NONE
+    }
+
+    private fun String?.toGenderOrNull(): Gender? {
+        return this?.let { value -> runCatching { Gender.valueOf(value) }.getOrNull() }
     }
 }

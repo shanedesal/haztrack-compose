@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -6,6 +8,18 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
+
+// Backend base URL is machine-specific (points at your locally-run upload service) and must
+// never be hardcoded in source. Falls back to the Android emulator's alias for the host
+// machine's localhost if not set, so the project still builds without any local.properties entry.
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { load(it) }
+    }
+}
+val backendBaseUrl: String =
+    localProperties.getProperty("BACKEND_BASE_URL") ?: "http://10.0.2.2:4000/api/v1/"
 
 android {
     namespace = "com.danger.haztrack"
@@ -23,6 +37,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "BACKEND_BASE_URL", "\"$backendBaseUrl\"")
     }
 
     buildTypes {
@@ -40,6 +56,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -58,6 +75,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.material3)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -81,5 +99,29 @@ dependencies {
     implementation(libs.timber)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.moshi)
+    implementation(libs.okhttp)
+    // Included in all build types so NetworkModule compiles for release too; only *activated*
+    // (added to the OkHttpClient) when BuildConfig.DEBUG is true, so bodies are never logged
+    // in a release build.
+    implementation(libs.okhttp.logging.interceptor)
+    implementation(libs.moshi)
+    implementation(libs.libphonenumber.android)
     ksp(libs.hilt.compiler)
+    ksp(libs.moshi.kotlin.codegen)
+}
+
+// Moshi codegen already runs via KSP. Hilt's hiltJavaCompile* tasks still mirror every KSP
+// processor onto javac's annotationProcessorPath (dagger#4116), which loads Moshi's
+// deprecated kapt processor and prints a false "migrate to KSP" warning. Strip that jar
+// from those tasks only; KSP codegen is unaffected.
+tasks.withType<JavaCompile>().configureEach {
+    if (name.startsWith("hiltJavaCompile")) {
+        doFirst {
+            options.annotationProcessorPath = options.annotationProcessorPath?.filter { file ->
+                !file.name.startsWith("moshi-kotlin-codegen-")
+            }
+        }
+    }
 }

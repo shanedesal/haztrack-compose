@@ -1,6 +1,8 @@
 package com.danger.haztrack.presentation.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -21,7 +23,12 @@ import com.danger.haztrack.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AuthTopBar(onNavigateBack: () -> Unit, modifier: Modifier = Modifier, title: String? = null) {
+fun AuthTopBar(
+    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    title: String? = null,
+    actions: @Composable RowScope.() -> Unit = {},
+) {
     CenterAlignedTopAppBar(
         title = {
             if (title != null) {
@@ -33,6 +40,7 @@ fun AuthTopBar(onNavigateBack: () -> Unit, modifier: Modifier = Modifier, title:
             IconButton(
                 onClick = onNavigateBack,
                 modifier = Modifier
+                    .padding(start = 12.dp)
                     .size(40.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceContainer),
@@ -44,7 +52,8 @@ fun AuthTopBar(onNavigateBack: () -> Unit, modifier: Modifier = Modifier, title:
                 )
             }
         },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+        actions = actions,
+        colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.background,
         ),
     )

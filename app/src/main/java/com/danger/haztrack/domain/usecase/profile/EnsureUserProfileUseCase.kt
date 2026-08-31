@@ -1,6 +1,7 @@
 package com.danger.haztrack.domain.usecase.profile
 
 import com.danger.haztrack.domain.model.AuthUser
+import com.danger.haztrack.domain.model.PhotoSource
 import com.danger.haztrack.domain.model.UserProfile
 import com.danger.haztrack.domain.repository.profile.UserProfileRepository
 import javax.inject.Inject
@@ -32,6 +33,7 @@ class EnsureUserProfileUseCase @Inject constructor(
             lastName = lastName?.trim()?.takeIf { it.isNotBlank() } ?: derivedLastName ?: "",
             email = user.email,
             photoUrl = user.photoUrl,
+            photoSource = if (user.photoUrl != null) PhotoSource.GOOGLE else PhotoSource.NONE,
         )
         userProfileRepository.saveUserProfile(profile)
         return profile

@@ -78,8 +78,8 @@ private fun SettingsContent(
     onProfileClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val displayName = uiState.user?.displayName?.takeIf { it.isNotBlank() }
-    val email = uiState.user?.email
+    val displayName = uiState.displayName?.takeIf { it.isNotBlank() }
+    val email = uiState.email
     val initial = (displayName ?: email)?.trim()?.firstOrNull()?.uppercase() ?: "?"
 
     Column(
@@ -110,7 +110,7 @@ private fun SettingsContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 UserAvatar(
-                    photoUrl = uiState.user?.photoUrl,
+                    photoUrl = uiState.photoUrl,
                     initial = initial,
                     size = 56.dp,
                 )

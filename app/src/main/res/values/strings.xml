@@ -101,4 +101,30 @@
     <string name="profile_email_label">Email</string>
     <string name="profile_google_account_badge">Signed in with Google</string>
     <string name="profile_name_fallback">Not provided</string>
+    <string name="profile_edit_button_description">Edit profile</string>
+    <string name="profile_cancel_button">Cancel</string>
+    <string name="profile_save_button">Save</string>
+    <string name="profile_change_photo_description">Change profile photo</string>
+    <string name="profile_remove_photo_button">Remove photo</string>
+    <string name="profile_date_of_birth_label">Date of birth</string>
+    <string name="profile_date_picker_confirm">OK</string>
+    <string name="profile_date_picker_cancel">Cancel</string>
+    <string name="profile_gender_label">Gender</string>
+    <string name="profile_gender_male">Male</string>
+    <string name="profile_gender_female">Female</string>
+    <string name="profile_gender_other">Other</string>
+    <string name="profile_gender_prefer_not_to_say">Prefer not to say</string>
+    <string name="profile_phone_number_label">Phone number</string>
+    <string name="profile_error_name_required">First and last name are required.</string>
+    <string name="profile_error_future_date_of_birth">Date of birth cannot be in the future.</string>
+    <string name="profile_error_invalid_phone_number">Enter a valid phone number for the selected country.</string>
+    <string name="profile_error_save_failed">Could not save your profile. Please try again.</string>
+    <string name="profile_error_photo_too_large">This photo is too large. Try a smaller image.</string>
+    <string name="profile_error_photo_unsupported_type">Unsupported image type. Use a JPEG, PNG, or WebP photo.</string>
+    <string name="profile_error_photo_rate_limited">Too many photo updates. Please wait a moment and try again.</string>
+    <string name="profile_error_photo_upload_failed">Could not upload your photo. Please try again.</string>
+
+    <!-- Phone number field -->
+    <string name="phone_field_country_selector_description">Choose country code</string>
+    <string name="phone_field_search_label">Search country or dial code</string>
 </resources>

@@ -7,20 +7,11 @@ import javax.inject.Inject
 class SaveUserProfileUseCase @Inject constructor(
     private val userProfileRepository: UserProfileRepository,
 ) {
-    suspend operator fun invoke(
-        userId: String,
-        firstName: String,
-        lastName: String,
-        email: String?,
-        photoUrl: String?,
-    ) {
+    suspend operator fun invoke(profile: UserProfile) {
         userProfileRepository.saveUserProfile(
-            UserProfile(
-                id = userId,
-                firstName = firstName.trim(),
-                lastName = lastName.trim(),
-                email = email,
-                photoUrl = photoUrl,
+            profile.copy(
+                firstName = profile.firstName.trim(),
+                lastName = profile.lastName.trim(),
             ),
         )
     }

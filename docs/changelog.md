@@ -2,6 +2,15 @@
 
 All notable feature additions, updates, bug fixes, and functionality changes are recorded here.
 
+## 2026-09-01
+
+### Fixed
+
+- Replaced deprecated `TopAppBarDefaults.centerAlignedTopAppBarColors` in `AuthTopBar` with `topAppBarColors` (Material 3 now uses one colors factory for all top-app-bar variants).
+- Replaced the deprecated `Locale(language, country)` constructor in `CountryCodeProvider` with `Locale.Builder().setRegion(...)` (API 21+; `Locale.of` would require API 36).
+- Silenced the false Moshi "migrate to KSP" warning emitted by `:app:hiltJavaCompileDebug`. Moshi codegen already runs via KSP; Hilt still mirrors KSP processors onto that javac task (dagger#4116). `app/build.gradle.kts` now strips `moshi-kotlin-codegen` from `hiltJavaCompile*` annotation-processor classpaths only.
+- Fixed Detekt `TooManyFunctions` / `ReturnCount` findings on the Profile flow. `TooManyFunctions` now ignores `@Composable` helpers and allows 20 ordinary functions per file/class so form ViewModels can keep one named event per field. `onSaveClick` validation was folded into one `when`, and `toCountryInfoOrNull` now uses a single guard. Also merged a duplicate `complexity:` key that had been dropping the `LongMethod` block.
+
 ## 2026-08-31
 
 ### Added
@@ -14,6 +23,12 @@ All notable feature additions, updates, bug fixes, and functionality changes are
 - Added placeholder `ReportScreen`, `MyReportsScreen`, and `NotificationsScreen` composables with an empty-state message; these screens have no backing data yet.
 - Added a `SettingsScreen` with a user info card and the Sign Out action (moved off of Home).
 - Added shared `IconBadge`, `EmptyStateMessage`, and `QuickActionCard` composables used across the new screens and the redesigned auth flows.
+- Made the Profile screen fully editable: first name, last name, date of birth, gender, and phone number can now be edited inline (Edit/Save/Cancel in the top bar), with the profile picture changeable independently by tapping the avatar. Added `dateOfBirth`, `gender`, `phoneRegionCode`, `phoneDialCode`, and `phoneNumber` fields to `UserProfile`/`UserProfileDto`, new `domain/model/Gender.kt` and `domain/model/PhotoSource.kt` enums, and `domain/usecase/profile/ProfileInputValidation.kt` for the edit form's validation rules.
+- Added a custom country-code phone number picker: `presentation/components/PhoneNumberField.kt` (a flag + dial-code chip that opens a searchable bottom sheet) backed by a new `util/CountryCodeProvider.kt`, which builds the country list and validates numbers using the new `io.michaelrocks:libphonenumber-android` dependency. Flags are rendered as Unicode emoji computed from the region code, so no flag image assets were added.
+- Added secure profile-picture uploads via a self-hosted backend proxy, so the app never talks to Cloudinary directly and never holds a Cloudinary API secret: new `domain/model/UploadContext.kt`/`UploadedImage.kt` models, `domain/repository/upload/ImageUploadRepository.kt`, `domain/usecase/upload/` (`UploadImageUseCase`, `DeleteUploadedImageUseCase`, grouped in `UploadUseCases`), `data/remote/api/UploadApi.kt` (Retrofit), `data/remote/api/ImageUploadRemoteDataSource.kt`, and `data/repository/upload/ImageUploadRepositoryImpl.kt`. Removing a photo reverts to the linked Google photo (if any) or the initials avatar, and best-effort deletes the orphaned Cloudinary asset.
+- Added `presentation/profile/ProfilePhotoPicker.kt` (reads the photo picked via the system Photo Picker and compresses it client-side) and `util/ImageCompression.kt`/`util/IsoDateFormat.kt` helper utilities.
+- Added `di/NetworkModule.kt`, providing a shared Retrofit + OkHttp + Moshi stack for calls to our own backend, with an interceptor that automatically attaches the signed-in user's Firebase ID token to every request. This is meant to be reused by future REST endpoints (e.g. hazard reports) rather than each feature building its own HTTP client. Added `di/PhoneNumberModule.kt` to provide the `PhoneNumberUtil` singleton the country picker needs. Added the `retrofit`, `converter-moshi`, `moshi` + `moshi-kotlin-codegen` (via KSP), `okhttp` + `logging-interceptor`, and `libphonenumber-android` dependencies to `gradle/libs.versions.toml`, plus a `BACKEND_BASE_URL` `BuildConfig` field sourced from `local.properties` (never hardcoded).
+- Added `docs/backend-image-upload-spec.md`, the specification for the self-hosted Node.js/Express backend that proxies profile-picture uploads to Cloudinary (endpoints, auth model, image-processing pipeline, and security hardening checklist).
 
 ### Updated
 
@@ -26,11 +41,16 @@ All notable feature additions, updates, bug fixes, and functionality changes are
 - Refreshed Login and Register screens' spacing and typography to match the new type scale.
 - Redesigned Home as a dynamic dashboard: it now greets the signed-in user by name/email and surfaces "Report a Hazard" and "My Reports" quick actions instead of a static welcome message with a sign-out button.
 - Enabled edge-to-edge display in `MainActivity` for a more modern, immersive look.
+- Changed `SaveUserProfileUseCase` to accept a full `UserProfile` (instead of individual name/email/photo parameters) now that the profile has ~9 fields; updated its `RegisterViewModel` caller accordingly.
+- Updated `EnsureUserProfileUseCase` to also seed `photoSource = GOOGLE` the first time a profile document is created for an account with a Google photo, so the app knows it's safe to later replace that photo with an uploaded one.
+- Migrated `HomeViewModel`/`HomeUiState` and `SettingsViewModel`/`SettingsUiState` to read the greeting name and Settings user card from the Firestore-backed `UserProfile` (via `UserProfileUseCases`) instead of `AuthUser.displayName`/`photoUrl`, so a name or photo change made on the Profile screen is now reflected everywhere immediately.
+- Added an optional trailing `actions` slot to the shared `AuthTopBar` component (used by the Profile screen's Edit/Save/Cancel buttons); existing callers are unaffected since it defaults to empty.
 
 ### Documentation
 
 - Added `docs/deeplinks-firebase-hosting.md`, a beginner-focused guide to the password-reset deep-link flow, Firebase Hosting setup, Android App Links verification, deployment, testing, troubleshooting, and security considerations.
 - Linked the new guide from `docs/docs.md`.
+- Updated `docs/docs.md`: extended the `UserProfile` model/tech-stack/file-structure sections for the new fields and upload layer, rewrote §8.6 (User Profile) and added §8.7 (Editable Profile Fields and Secure Photo Uploads) describing the edit flow and the photo-upload sequence, updated the UI components table, and linked the new `backend-image-upload-spec.md`.
 
 ### Fixed
 
