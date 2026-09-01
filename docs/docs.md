@@ -1,6 +1,8 @@
 # Haztrack — Developer Documentation
 
 > **Current state:** Authentication + editable user profile (with secure Cloudinary photo uploads via a self-hosted backend). The full hazard-tracking product domain has not been implemented yet. The remaining placeholder packages (`data/local`, `data/service`, `presentation/common`) are empty and reserved for future features.
+>
+> **Getting started:** clone, secrets, Firebase CLI, and a feature summary live in the root [`README.md`](../README.md). Contact the main developer for `google-services.json` and other secrets — do not create a separate Firebase project for local work.
 
 ---
 
@@ -1212,14 +1214,14 @@ git config core.hooksPath .githooks
    ```
 
 3. **Add `google-services.json`.**
-   Download `google-services.json` from your Firebase project's settings and place it at `app/google-services.json`. This file is gitignored and must never be committed.
+   **Contact the main developer** for the team file and place it at `app/google-services.json`. Do not download a file from a personal Firebase project. This file is gitignored and must never be committed. Firebase CLI login (`firebase login` / `firebase use`) is for Hosting and Firestore deploys against the shared project (`haztrack-62a3c`); it does not create this JSON. See the root [README](../README.md) for the full CLI and secret-management flow.
 
 4. **Add the SHA-1 fingerprint to Firebase.**
    Google Sign-In requires your app's SHA-1 signing certificate to be registered in the Firebase Console. For the debug build, run:
    ```bash
    ./gradlew signingReport
    ```
-   Copy the `SHA1` value under the `debug` variant and add it in Firebase Console → Project Settings → Your Android App → Add fingerprint.
+   Copy the `SHA1` value under the `debug` variant and **send it to the main developer** so they can add it in Firebase Console → Project Settings → Your Android App → Add fingerprint.
 
 5. **Sync Gradle and build:**
    ```bash

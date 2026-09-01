@@ -4,6 +4,10 @@ All notable feature additions, updates, bug fixes, and functionality changes are
 
 ## 2026-09-01
 
+### Documentation
+
+- Added a root `README.md` covering current app functionality, local project setup, Firebase CLI login/project selection, and secret management for gitignored `google-services.json` (obtain from the main developer; do not create a separate Firebase project). Linked that flow from `docs/docs.md` setup so it matches the README.
+
 ### Updated
 
 - Image-upload Timber logs now include `mimeType` and `byteCount` on start, a success line for delete, and failures with `httpCode` when the backend returns an HTTP error. Tokens, image bytes, and `publicId` are still never logged.
