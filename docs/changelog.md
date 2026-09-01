@@ -4,8 +4,14 @@ All notable feature additions, updates, bug fixes, and functionality changes are
 
 ## 2026-09-01
 
+### Updated
+
+- Image-upload Timber logs now include `mimeType` and `byteCount` on start, a success line for delete, and failures with `httpCode` when the backend returns an HTTP error. Tokens, image bytes, and `publicId` are still never logged.
+
 ### Fixed
 
+- Allowed debug-only cleartext HTTP to the local image-upload backend (`10.0.2.2`, `localhost`, `127.0.0.1`) via `app/src/debug` network security config. Android 9+ otherwise rejects `http://10.0.2.2` with `CLEARTEXT communication ... not permitted`. Release builds are unchanged.
+- Planted `Timber.DebugTree()` from `HaztrackApplication` in debug builds so existing Timber calls (including image-upload traces) actually appear in Logcat. Without a planted tree, Timber is a no-op.
 - Replaced deprecated `TopAppBarDefaults.centerAlignedTopAppBarColors` in `AuthTopBar` with `topAppBarColors` (Material 3 now uses one colors factory for all top-app-bar variants).
 - Replaced the deprecated `Locale(language, country)` constructor in `CountryCodeProvider` with `Locale.Builder().setRegion(...)` (API 21+; `Locale.of` would require API 36).
 - Silenced the false Moshi "migrate to KSP" warning emitted by `:app:hiltJavaCompileDebug`. Moshi codegen already runs via KSP; Hilt still mirrors KSP processors onto that javac task (dagger#4116). `app/build.gradle.kts` now strips `moshi-kotlin-codegen` from `hiltJavaCompile*` annotation-processor classpaths only.

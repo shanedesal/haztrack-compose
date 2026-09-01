@@ -74,7 +74,7 @@
 | JSON serialization | Moshi (`moshi-kotlin-codegen` via KSP) | 1.15.2 |
 | HTTP client | OkHttp + `logging-interceptor` (debug-only logging) | 4.12.0 |
 | Phone number validation | `libphonenumber-android` (io.michaelrocks) | 9.0.5 |
-| Logging | Timber | 5.0.1 |
+| Logging | Timber (`DebugTree` planted in debug builds) | 5.0.1 |
 | Static Analysis | Detekt | 2.0.0-alpha.6 |
 | Build | Gradle (Kotlin DSL) | 9.3.1 wrapper |
 | Min SDK | Android 7.0 (Nougat) | API 24 |
@@ -121,7 +121,7 @@ haztrack/
         │   │   └── ic_google.xml       # Google logo vector
         │   └── mipmap-*/               # Launcher icons (multiple densities)
         └── java/com/danger/haztrack/
-            ├── HaztrackApplication.kt  # @HiltAndroidApp — Hilt entry point
+            ├── HaztrackApplication.kt  # @HiltAndroidApp — Hilt entry point; plants Timber.DebugTree in debug
             ├── MainActivity.kt         # @AndroidEntryPoint — single Activity, hosts Compose
             │
             ├── di/                     # Dependency Injection (Hilt modules)
@@ -453,7 +453,9 @@ fun provideAuthInterceptor(firebaseAuth: FirebaseAuth): Interceptor {
 }
 ```
 
-Every request to our backend automatically carries the signed-in user's Firebase ID token — callers never attach it manually. Since `Interceptor.intercept` is synchronous (it runs on OkHttp's own dispatcher thread, not a coroutine), fetching the token blocks on `Tasks.await(...)` rather than using `.await()`; this is the standard way to bridge a GMS `Task` into non-suspending code. Request/response bodies are only logged (via `HttpLoggingInterceptor`) when `BuildConfig.DEBUG` is true, so tokens and image bytes are never written to logcat in a release build.
+Every request to our backend automatically carries the signed-in user's Firebase ID token — callers never attach it manually. Since `Interceptor.intercept` is synchronous (it runs on OkHttp's own dispatcher thread, not a coroutine), fetching the token blocks on `Tasks.await(...)` rather than using `.await()`; this is the standard way to bridge a GMS `Task` into non-suspending code. Request/response bodies are only logged (via `HttpLoggingInterceptor` at `BASIC`) when `BuildConfig.DEBUG` is true, so tokens and image bytes are never written to logcat in a release build. Those OkHttp lines use tag `OkHttp`. Feature-level upload traces (`UploadImage` / `DeleteUploadedImage`, including `mimeType` and `byteCount` — never tokens, image bytes, or the uid-bearing `publicId`) are logged with Timber from `ImageUploadRemoteDataSource` and only reach Logcat in debug, because `HaztrackApplication` plants `Timber.DebugTree()` when `BuildConfig.DEBUG` is true.
+
+The default backend URL is `http://10.0.2.2:4000/api/v1/` (emulator → host). Android 9+ rejects that cleartext call unless a **debug-only** `networkSecurityConfig` allows it (`app/src/debug/`); release APKs do not ship that exception.
 
 `UploadApi` is a small Retrofit interface (`@Multipart @POST("uploads/{context}")`, `@DELETE("uploads/{context}")`). `ImageUploadRemoteDataSource` builds the `MultipartBody.Part` from the raw bytes and calls it, keeping Retrofit/OkHttp types out of the repository layer — the same pattern `AuthRemoteDataSource` uses to keep `FirebaseUser` out of `AuthRepository`. `ImageUploadRepositoryImpl` maps the response DTO to the domain `UploadedImage` model and treats `delete` as best-effort (a failed cleanup call is logged, not thrown, so removing a photo locally never gets blocked by a flaky network).
 
@@ -705,9 +707,16 @@ Hilt is a DI (Dependency Injection) framework that automatically creates and pro
 **Step 1 — Application**
 ```kotlin
 @HiltAndroidApp
-class HaztrackApplication : Application()
+class HaztrackApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+        }
+    }
+}
 ```
-`@HiltAndroidApp` generates the Hilt component hierarchy. This is the starting point.
+`@HiltAndroidApp` generates the Hilt component hierarchy. This is the starting point. Debug builds also plant `Timber.DebugTree()` here so `Timber.d` / `Timber.w` / `Timber.e` calls across the app actually appear in Logcat; without a planted tree, Timber is a no-op. Release builds plant nothing, so those calls stay silent.
 
 **Step 2 — Activity**
 ```kotlin
@@ -1098,6 +1107,8 @@ Client-side, `ProfilePhotoPicker` (instantiated in the Screen, not the ViewModel
 
 On a successful upload, `ProfileViewModel` immediately saves `photoUrl` (the Cloudinary secure URL) and `photoSource = CLOUDINARY` — this does not wait for the text-field Save button. **Remove photo** deletes the backend's Cloudinary asset (best-effort; a failure is logged but doesn't block the rest of the flow) and reverts `photoUrl`/`photoSource` to the Google photo if `isGoogleAccount`, or to `null`/`NONE` (initials avatar) otherwise. Upload failures are mapped by `UploadErrorMapper.kt` to specific messages for "too large" (413), "unsupported type" (415), and "rate limited" (429) responses, falling back to a generic upload-failed message otherwise.
 
+To watch an upload in Logcat (debug builds), filter by `UploadImage` for start / success / failure (`context`, `mimeType`, `byteCount`, and `httpCode` on HTTP errors) or by `OkHttp` for the BASIC request line, status, and timing. Do not expect tokens, raw image bytes, or `publicId` in either stream.
+
 ---
 
 ## 9. UI Components
@@ -1227,7 +1238,7 @@ git config core.hooksPath .githooks
    ```properties
    BACKEND_BASE_URL=http://10.0.2.2:4000/api/v1/
    ```
-   `10.0.2.2` is the Android emulator's alias for your host machine's `localhost`, and is used automatically if this property is omitted. A physical device needs `adb reverse tcp:4000 tcp:4000` or a tunnel (e.g. ngrok) to reach a backend running on your development machine — see the spec doc's hardening checklist. Without a running backend, everything except changing the profile photo still works.
+   `10.0.2.2` is the Android emulator's alias for your host machine's `localhost`, and is used automatically if this property is omitted. Android 9+ blocks cleartext HTTP by default, so **debug** builds merge `app/src/debug/res/xml/network_security_config.xml` to allow HTTP only to `10.0.2.2`, `localhost`, and `127.0.0.1`; release builds do not include that exception. A physical device needs `adb reverse tcp:4000 tcp:4000` (and `BACKEND_BASE_URL=http://127.0.0.1:4000/api/v1/`) or a TLS tunnel (e.g. ngrok) to reach a backend running on your development machine — see the spec doc's hardening checklist. Without a running backend, everything except changing the profile photo still works.
 
 ### Key Files Never to Commit
 
