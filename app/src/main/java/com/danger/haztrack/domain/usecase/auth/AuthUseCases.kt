@@ -9,6 +9,7 @@ data class AuthUseCases @Inject constructor(
     val signInWithGoogle: SignInWithGoogleUseCase,
     val sendPasswordResetEmail: SendPasswordResetEmailUseCase,
     val signOut: SignOutUseCase,
-    val verifyPasswordResetCode: VerifyPasswordResetCodeUseCase,
-    val confirmPasswordReset: ConfirmPasswordResetUseCase,
+    val establishSessionFromUrl: EstablishSessionFromUrlUseCase,
+    val updatePassword: UpdatePasswordUseCase,
+    val awaitSessionReadyUseCase: AwaitSessionReadyUseCase
 )

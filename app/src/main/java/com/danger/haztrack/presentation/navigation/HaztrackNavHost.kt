@@ -28,20 +28,23 @@ import kotlinx.coroutines.flow.StateFlow
 @Composable
 fun HaztrackNavHost(
     navController: NavHostController = rememberNavController(),
-    oobCodeFlow: StateFlow<String?>
+    recoveryEmailFlow: StateFlow<String?>
 ) {
     val sessionViewModel: SessionViewModel = hiltViewModel()
-    val oobCode by oobCodeFlow.collectAsStateWithLifecycle()
+    val startDestination by sessionViewModel.startDestination.collectAsStateWithLifecycle()
+    val recoveryEmail by recoveryEmailFlow.collectAsStateWithLifecycle()
 
-    LaunchedEffect(oobCode) {
-        oobCode?.let { code ->
+    val resolvedStart = startDestination ?: return
+
+    LaunchedEffect(recoveryEmail) {
+        recoveryEmail?.let { code ->
             navController.navigate(HaztrackDestination.ResetPassword.createRoute(code))
         }
     }
 
     NavHost(
         navController = navController,
-        startDestination = sessionViewModel.startDestination,
+        startDestination = resolvedStart,
     ) {
         composable(HaztrackDestination.Login.route) {
             LoginScreen(
@@ -68,7 +71,7 @@ fun HaztrackNavHost(
 
         composable(
             route = HaztrackDestination.ResetPassword.route,
-            arguments = listOf(navArgument("oobCode") { type = NavType.StringType})
+            arguments = listOf(navArgument("email") { type = NavType.StringType})
         ) {
             ResetPasswordScreen(
                 onNavigateBack = { navController.navigateToLoginAndClearStack() },

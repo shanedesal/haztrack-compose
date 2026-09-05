@@ -55,8 +55,8 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun onSignOutClick() {
-        authUseCases.signOut()
         viewModelScope.launch {
+            authUseCases.signOut()
             _events.send(SettingsEvent.NavigateToLogin)
         }
     }

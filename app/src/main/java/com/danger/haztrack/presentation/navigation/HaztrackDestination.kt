@@ -1,5 +1,7 @@
 package com.danger.haztrack.presentation.navigation
 
+import android.net.Uri
+
 sealed class HaztrackDestination(val route: String) {
     data object Login : HaztrackDestination("login")
     data object Register : HaztrackDestination("register")
@@ -11,7 +13,7 @@ sealed class HaztrackDestination(val route: String) {
     data object Settings : HaztrackDestination("settings")
     data object Profile : HaztrackDestination("profile")
 
-    object ResetPassword : HaztrackDestination("reset_password/{oobCode}"){
-        fun createRoute(oobCode: String) = "reset_password/$oobCode"
+    object ResetPassword : HaztrackDestination("reset_password/{email}"){
+        fun createRoute(email: String) = "reset_password/${Uri.encode(email)}"
     }
 }

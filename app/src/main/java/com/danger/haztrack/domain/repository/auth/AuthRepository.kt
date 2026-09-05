@@ -2,20 +2,22 @@ package com.danger.haztrack.domain.repository.auth
 
 import com.danger.haztrack.domain.model.AuthUser
 
-interface AuthRepository {
+interface   AuthRepository {
     fun getCurrentUser(): AuthUser?
 
     suspend fun signInWithEmail(email: String, password: String): AuthUser
 
     suspend fun signUpWithEmail(firstName: String, lastName: String, email: String, password: String): AuthUser
 
-    suspend fun signInWithGoogle(idToken: String): AuthUser
+    suspend fun signInWithGoogle(idToken: String, rawNonce: String): AuthUser
 
     suspend fun sendPasswordResetEmail(email: String)
 
-    suspend fun verifyPasswordResetCode(oobCode: String): String
+    suspend fun establishSessionFromUrl(url: String): AuthUser
 
-    suspend fun confirmPasswordReset(oobCode: String, newPassword: String)
+    suspend fun updatePassword(newPassword: String)
 
-    fun signOut()
+    suspend fun signOut()
+
+    suspend fun awaitSessionReady()
 }

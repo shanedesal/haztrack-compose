@@ -5,6 +5,8 @@ import com.danger.haztrack.domain.model.AuthUser
 import com.danger.haztrack.domain.repository.auth.AuthRepository
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
+import io.github.jan.supabase.auth.user.UserInfo
+import kotlinx.serialization.json.JsonPrimitive
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -13,9 +15,7 @@ import javax.inject.Singleton
 class AuthRepositoryImpl @Inject constructor(
     private val authService: AuthRemoteDataSource,
 ) : AuthRepository {
-    override fun getCurrentUser(): AuthUser? {
-        return authService.currentUser?.toAuthUser()
-    }
+    override fun getCurrentUser(): AuthUser? = authService.currentUser?.toAuthUser()
 
     override suspend fun signInWithEmail(email: String, password: String): AuthUser {
         return authService.signInWithEmail(email, password).toAuthUser()
@@ -32,34 +32,39 @@ class AuthRepositoryImpl @Inject constructor(
         return authService.signUpWithEmail(displayName, email, password).toAuthUser()
     }
 
-    override suspend fun signInWithGoogle(idToken: String): AuthUser {
-        return authService.signInWithGoogle(idToken).toAuthUser()
+    override suspend fun signInWithGoogle(idToken: String, rawNonce: String): AuthUser {
+        return authService.signInWithGoogle(idToken, rawNonce).toAuthUser()
     }
 
     override suspend fun sendPasswordResetEmail(email: String) {
         authService.sendPasswordResetEmail(email)
     }
 
-    override suspend fun verifyPasswordResetCode(oobCode: String): String {
-        return authService.verifyPasswordResetCode(oobCode)
+    override suspend fun establishSessionFromUrl(url: String): AuthUser {
+        return authService.establishSessionFromUrl(url).toAuthUser()
     }
 
-    override suspend fun confirmPasswordReset(oobCode: String, newPassword: String) {
-        authService.confirmPasswordReset(oobCode, newPassword)
+    override suspend fun updatePassword(newPassword: String) {
+        authService.updatePassword(newPassword)
     }
 
-    override fun signOut() {
+    override suspend fun signOut() {
         authService.signOut()
     }
 
-    private fun FirebaseUser.toAuthUser(): AuthUser {
-        val isGoogleAccount = providerData.any { it.providerId == GoogleAuthProvider.PROVIDER_ID }
+    override suspend fun awaitSessionReady() = authService.awaitInitialization()
+
+    private fun UserInfo.toAuthUser(): AuthUser {
+        val displayName = (userMetadata?.get("display_name") as? JsonPrimitive)?.content
+        val photoUrl = (userMetadata?.get("photo_url") as? JsonPrimitive)?.content
+        val isGoogleAccount = identities?.any { it.provider == "google"} == true
+
         return AuthUser(
-            id = uid,
+            id = id,
             email = email,
             displayName = displayName,
-            photoUrl = photoUrl?.toString(),
-            isEmailVerified = isEmailVerified,
+            photoUrl = photoUrl,
+            isEmailVerified = emailConfirmedAt != null,
             isGoogleAccount = isGoogleAccount,
         )
     }

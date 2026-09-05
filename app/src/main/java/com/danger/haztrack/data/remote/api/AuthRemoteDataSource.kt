@@ -1,72 +1,72 @@
 package com.danger.haztrack.data.remote.api
 
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.auth.UserProfileChangeRequest
-import com.google.firebase.auth.actionCodeSettings
-import kotlinx.coroutines.tasks.await
-import timber.log.Timber
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.parseSessionFromUrl
+import io.github.jan.supabase.auth.providers.Google
+import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.providers.builtin.IDToken
+import io.github.jan.supabase.auth.user.UserInfo
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class AuthRemoteDataSource @Inject constructor(
-    private val firebaseAuth: FirebaseAuth,
+    private val auth: Auth,
 ) {
-    val currentUser: FirebaseUser?
-        get() = firebaseAuth.currentUser
+    val currentUser: UserInfo?
+        get() = auth.currentUserOrNull()
 
-    suspend fun signInWithEmail(email: String, password: String): FirebaseUser {
-        return firebaseAuth.signInWithEmailAndPassword(email, password).await().user
-            ?: error("Firebase did not return a user after email sign-in")
+    suspend fun signInWithEmail(email: String, password: String): UserInfo {
+        auth.signInWith(Email){
+            this.email = email
+            this.password = password
+        }
+        return auth.currentUserOrNull()
+            ?: error("Supabase did not return a user after email sign-in")
     }
 
-    suspend fun signUpWithEmail(displayName: String, email: String, password: String): FirebaseUser {
-        val user = firebaseAuth.createUserWithEmailAndPassword(email, password).await().user
-            ?: error("Firebase did not return a user after account creation")
-
-        val profileUpdate = UserProfileChangeRequest.Builder()
-            .setDisplayName(displayName)
-            .build()
-        runCatching { user.updateProfile(profileUpdate).await() }
-            .onFailure { Timber.w(it, "SignUpWithEmail: failed to set display name on new account") }
-
-        return user
+    suspend fun signUpWithEmail(displayName: String, email: String, password: String): UserInfo {
+        auth.signUpWith(Email){
+            this.email = email
+            this.password = password
+            data = buildJsonObject { put("display_name", displayName) }
+        }
+        return auth.currentUserOrNull()
+            ?: error("Supabase did not return a user after account creation")
     }
 
-    suspend fun signInWithGoogle(idToken: String): FirebaseUser {
-        val firebaseCredential = GoogleAuthProvider.getCredential(
-            idToken,
-            null,
-        )
-
-        return firebaseAuth.signInWithCredential(firebaseCredential).await().user
-            ?: error("Firebase did not return a user after Google sign-in")
+    suspend fun signInWithGoogle(idToken: String, rawNonce: String): UserInfo {
+        auth.signInWith(IDToken){
+            this.idToken = idToken
+            this.provider = Google
+            this.nonce = rawNonce
+        }
+        return auth.currentUserOrNull()
+            ?: error("Supabase did not return a user after Google sign-in")
     }
 
     suspend fun sendPasswordResetEmail(email: String) {
-        val  actionCodeSettings = actionCodeSettings {
-            url = "https://haztrack-62a3c.firebaseapp.com/resetPassword"
-            handleCodeInApp = true
-            setAndroidPackageName(
-                "com.danger.haztrack",
-                true,
-                null
-            )
-        }
-        firebaseAuth.sendPasswordResetEmail(email, actionCodeSettings).await()
+        auth.resetPasswordForEmail(
+            email = email,
+            redirectUrl = "com.danger.haztrack://reset-password"
+        )
     }
 
-    suspend fun verifyPasswordResetCode(code: String): String {
-        return firebaseAuth.verifyPasswordResetCode(code).await()
+    suspend fun establishSessionFromUrl(url: String): UserInfo {
+        auth.parseSessionFromUrl(url)
+        return auth.currentUserOrNull()
+            ?: error("Supabase did not return a user after processing the recovery link")
     }
 
-    suspend fun confirmPasswordReset(code: String, newPassword: String) {
-        firebaseAuth.confirmPasswordReset(code, newPassword).await()
+    suspend fun updatePassword(newPassword: String) {
+        auth.updateUser { password = newPassword }
     }
 
-    fun signOut() {
-        firebaseAuth.signOut()
+    suspend fun awaitInitialization() = auth.awaitInitialization()
+
+    suspend fun signOut() {
+        auth.signOut()
     }
 }

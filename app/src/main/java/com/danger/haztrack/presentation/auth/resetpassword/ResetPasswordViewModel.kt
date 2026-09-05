@@ -19,28 +19,10 @@ class ResetPasswordViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val oobCode: String = checkNotNull(savedStateHandle["oobCode"])
-    private val _uiState = MutableStateFlow(ResetPasswordUiState())
+    private val _uiState = MutableStateFlow(
+        ResetPasswordUiState(email = savedStateHandle["email"])
+    )
     val uiState: StateFlow<ResetPasswordUiState> = _uiState.asStateFlow()
-
-    init{
-        verifyCode()
-    }
-
-    private fun verifyCode() {
-        viewModelScope.launch {
-            runCatching {
-                authUseCases.verifyPasswordResetCode(oobCode)
-            }.onSuccess { email ->
-                _uiState.update {
-                    it.copy(email = email, isCodeValid = true, isVerifying = false)
-                }
-            }.onFailure { throwable ->
-                _uiState.update {
-                    it.copy(isVerifying = false, errorMessageRes = throwable.toAuthErrorMessageRes())
-                }
-            }
-        }
-    }
 
     fun onNewPasswordChange(password: String) {
         _uiState.update {
@@ -63,7 +45,7 @@ class ResetPasswordViewModel @Inject constructor(
                 it.copy(isLoading = true, errorMessageRes = null)
             }
             runCatching {
-                authUseCases.confirmPasswordReset(oobCode, state.newPassword)
+                authUseCases.updatePassword(state.newPassword)
             }.onSuccess {
                 _uiState.update {
                     it.copy(isLoading = false, isResetSuccessful = true)

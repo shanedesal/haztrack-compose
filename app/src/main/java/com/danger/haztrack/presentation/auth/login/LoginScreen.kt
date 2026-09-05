@@ -82,7 +82,9 @@ fun LoginScreen(
             coroutineScope.launch {
                 viewModel.onGoogleSignInStarted()
                 runCatching { googleAuthClient.requestIdToken(context) }
-                    .onSuccess(viewModel::onGoogleIdTokenReceived)
+                    .onSuccess { result ->
+                        viewModel.onGoogleIdTokenReceived(result.idToken, result.rawNonce)
+                    }
                     .onFailure(viewModel::onGoogleSignInFailed)
             }
         },

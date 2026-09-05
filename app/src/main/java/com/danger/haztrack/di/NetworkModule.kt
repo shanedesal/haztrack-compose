@@ -2,19 +2,17 @@ package com.danger.haztrack.di
 
 import com.danger.haztrack.BuildConfig
 import com.danger.haztrack.data.remote.api.UploadApi
-import com.google.android.gms.tasks.Tasks
-import com.google.firebase.auth.FirebaseAuth
 import com.squareup.moshi.Moshi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import io.github.jan.supabase.auth.Auth
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
-import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -34,22 +32,18 @@ object NetworkModule {
     fun provideMoshi(): Moshi = Moshi.Builder().build()
 
     /**
-     * Attaches the signed-in user's Firebase ID token to every request. Runs on OkHttp's
-     * background dispatcher, so blocking on [Tasks.await] here (there is no suspend-friendly
-     * hook inside [Interceptor.intercept]) is safe and mirrors the standard pattern for bridging
-     * GMS `Task`s into synchronous code.
+     * Attaches the signed-in user's Supabase access token to every request. Unlike the old
+     * Firebase version, this needs no async fetch or Task-bridging: Supabase's Auth plugin
+     * keeps the current session's access token cached in memory and refreshes it automatically
+     * in the background, so reading it here is a plain synchronous call.
      */
     @Provides
     @Singleton
-    fun provideAuthInterceptor(firebaseAuth: FirebaseAuth): Interceptor {
+    fun provideAuthInterceptor(auth: Auth): Interceptor {
         return Interceptor { chain ->
-            val idToken = firebaseAuth.currentUser?.let { user ->
-                runCatching { Tasks.await(user.getIdToken(false)).token }
-                    .onFailure { Timber.w(it, "Fetching Firebase ID token for backend request failed") }
-                    .getOrNull()
-            }
+            val accessToken = auth.currentAccessTokenOrNull()
             val request = chain.request().newBuilder()
-                .apply { idToken?.let { addHeader("Authorization", "Bearer $it") } }
+                .apply { accessToken?.let { addHeader("Authorization", "Bearer $it") } }
                 .build()
             chain.proceed(request)
         }
@@ -61,8 +55,6 @@ object NetworkModule {
         return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .apply {
-                // Never log request/response bodies (which may include image bytes and the
-                // bearer token) outside of debug builds.
                 if (BuildConfig.DEBUG) {
                     addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
                 }

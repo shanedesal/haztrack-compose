@@ -20,6 +20,8 @@ val localProperties = Properties().apply {
 }
 val backendBaseUrl: String =
     localProperties.getProperty("BACKEND_BASE_URL") ?: "http://10.0.2.2:4000/api/v1/"
+val supabaseUrl: String = localProperties.getProperty("SUPABASE_URL")
+val supabaseAnonKey: String = localProperties.getProperty("SUPABASE_ANON_KEY")
 
 android {
     namespace = "com.danger.haztrack"
@@ -39,6 +41,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "BACKEND_BASE_URL", "\"$backendBaseUrl\"")
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
     }
 
     buildTypes {
@@ -110,6 +114,9 @@ dependencies {
     implementation(libs.libphonenumber.android)
     ksp(libs.hilt.compiler)
     ksp(libs.moshi.kotlin.codegen)
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.auth)
+    implementation(libs.ktor.client.android)
 }
 
 // Moshi codegen already runs via KSP. Hilt's hiltJavaCompile* tasks still mirror every KSP

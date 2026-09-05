@@ -9,15 +9,22 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
+import com.danger.haztrack.domain.usecase.auth.AuthUseCases
 import com.danger.haztrack.presentation.navigation.HaztrackNavHost
 import com.danger.haztrack.presentation.theme.HaztrackTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import timber.log.Timber
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    private val oobCodeFlow = MutableStateFlow<String?>(null)
+    @Inject
+    lateinit var authUseCases: AuthUseCases
+    private val recoveryEmailFlow = MutableStateFlow<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,7 +33,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             HaztrackTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    HaztrackNavHost(oobCodeFlow = oobCodeFlow)
+                    HaztrackNavHost(recoveryEmailFlow = recoveryEmailFlow)
                 }
             }
         }
@@ -40,13 +47,15 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         val data = intent?.data ?: return
-        val actionData = data.getQueryParameter("link")
-            ?.let(Uri::parse)
-            ?: data
+        if (data.scheme != "com.danger.haztrack" || data.host != "reset-password") return
 
-        if (actionData.getQueryParameter("mode") == "resetPassword") {
-            actionData.getQueryParameter("oobCode")?.let { oobCode ->
-                oobCodeFlow.value = oobCode
+        lifecycleScope.launch {
+            runCatching {
+                authUseCases.establishSessionFromUrl(data.toString())
+            }.onSuccess { authUser ->
+                recoveryEmailFlow.value = authUser.email.orEmpty()
+            }.onFailure { throwable ->
+                Timber.w(throwable, "Failed to establish session from password recovery link")
             }
         }
     }

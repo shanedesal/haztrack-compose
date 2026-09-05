@@ -1,8 +1,13 @@
 package com.danger.haztrack.presentation.navigation
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.danger.haztrack.domain.usecase.auth.AuthUseCases
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -14,9 +19,17 @@ class SessionViewModel @Inject constructor(
     authUseCases: AuthUseCases,
 ) : ViewModel() {
 
-    val startDestination: String = if (authUseCases.getCurrentUser() != null) {
-        HaztrackDestination.Home.route
-    } else {
-        HaztrackDestination.Login.route
+    private val _startDestination = MutableStateFlow<String?>(null)
+    val startDestination: StateFlow<String?> = _startDestination.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            authUseCases.awaitSessionReadyUseCase()
+            _startDestination.value = if (authUseCases.getCurrentUser() != null) {
+                HaztrackDestination.Home.route
+            } else {
+                HaztrackDestination.Login.route
+            }
+        }
     }
 }
