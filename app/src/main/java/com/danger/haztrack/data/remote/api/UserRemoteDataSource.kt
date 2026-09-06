@@ -1,29 +1,25 @@
 package com.danger.haztrack.data.remote.api
 
 import com.danger.haztrack.data.remote.dto.UserProfileDto
-import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.tasks.await
-import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Talks to our backend's `/users/me` endpoints. The backend resolves the target user from the
+ * caller's Supabase bearer token (attached by NetworkModule's auth interceptor), not from a path
+ * parameter — [userId] is accepted here only to keep this class's public shape matching what
+ * [com.danger.haztrack.data.repository.profile.UserProfileRepositoryImpl] already calls; it is
+ * not sent over the wire.
+ */
 @Singleton
 class UserRemoteDataSource @Inject constructor(
-    private val firestore: FirebaseFirestore,
+    private val userApi: UserApi,
 ) {
-    suspend fun getUserProfile(userId: String): UserProfileDto? {
-        val snapshot = firestore.usersCollection().document(userId).get().await()
-        return if (snapshot.exists()) snapshot.toObject(UserProfileDto::class.java) else null
+    suspend fun getUserProfile(): UserProfileDto {
+        return userApi.getUserProfile()
     }
 
-    suspend fun saveUserProfile(userId: String, profile: UserProfileDto) {
-        Timber.d("SaveUserProfile: writing profile document")
-        firestore.usersCollection().document(userId).set(profile).await()
-    }
-
-    private fun FirebaseFirestore.usersCollection() = collection(USERS_COLLECTION)
-
-    companion object {
-        private const val USERS_COLLECTION = "users"
+    suspend fun saveUserProfile(profile: UserProfileDto): UserProfileDto {
+        return userApi.saveUserProfile(profile)
     }
 }

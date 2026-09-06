@@ -2,6 +2,33 @@
 
 All notable feature additions, updates, bug fixes, and functionality changes are recorded here.
 
+## 2026-09-06
+
+### Removed
+
+- Removed Firebase from the project entirely: Firebase Auth, Cloud Firestore, Firebase Hosting, the Firebase Gradle BOM, `FirebaseModule`, `firebase.json`, `.firebaserc`, `firestore.rules`, `firestore.indexes.json`, and the `public/` Hosting site (`assetlinks.json`, browser reset page, 404/index). Password-reset emails no longer use Firebase action links or a Hosting HTTPS domain.
+
+### Updated
+
+- User profiles now live on the self-hosted backend (`GET`/`PUT` `/users/me` via Retrofit `UserApi` / `UserRemoteDataSource`) instead of a Firestore `users/{uid}` document. The backend identifies the caller from the Supabase access token attached by `NetworkModule`; the Android path no longer sends a user id. `UserProfileDto` is a Moshi JSON adapter matching the backend's camelCase contract.
+- Profile UI now observes an in-memory `StateFlow` cache on `UserProfileRepository` (`ObserveUserProfileUseCase`) so Settings and Profile stay in sync after saves. Sign-out clears that cache (`ClearCachedUserProfileUseCase`). Home still loads the greeting via `ensureUserProfile`.
+- Password recovery uses the custom scheme `com.danger.haztrack://reset-password` (Supabase Implicit flow in `SupabaseModule`). `MainActivity` imports the recovery session from the URL; the reset screen updates the password on the authenticated Supabase user. Replaced `docs/deeplinks-firebase-hosting.md` with `docs/deeplinks-password-reset.md`.
+- Backend upload auth is a Supabase JWT (`Authorization: Bearer <access token>`), not a Firebase ID token. Updated `docs/docs.md`, `README.md`, and `docs/backend-image-upload-spec.md` so they no longer describe Firebase products, CLI deploys, or Firestore rules.
+
+### Fixed
+
+- **Commit `f0efa9a0bda0e12e5f8b4f5ca56555d8e3c4fcd8` (2026-09-06 08:39:28 +0800):** Fixed authentication startup and password recovery by waiting for the auth session before choosing the start destination, importing the recovery session from the deep link, retrieving the authenticated user, and using the renamed `awaitSessionReady` use case consistently. Added debug logging for recovery links and signup failures, and registered the Retrofit `UserApi` provider in Hilt.
+
+## 2026-09-05
+
+### Added
+
+- **Commit `697f44828cf7060156c1eeb2fc6bf5492674c40e` (2026-09-05 08:46:24 +0800):** Migrated app authentication from Firebase Auth to Supabase Auth. Added Supabase client/auth DI, Supabase URL and anonymous-key BuildConfig values, Google ID-token sign-in with a raw nonce, Supabase access-token attachment for backend requests, and session initialization before navigation.
+
+### Updated
+
+- **Commit `697f44828cf7060156c1eeb2fc6bf5492674c40e:** Changed password recovery to establish a Supabase session from the app deep link and update the authenticated user's password, replacing Firebase reset-code verification and confirmation. Sign-out is now suspendable, and the auth error mapping, navigation state, and dependency versions were updated for the migration. At this commit, Supabase email registration and reset-password support were still marked as incomplete in the commit message.
+
 ## 2026-09-01
 
 ### Documentation

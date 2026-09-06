@@ -65,10 +65,10 @@ class LoginViewModel @Inject constructor(
         _uiState.update { it.copy(isGoogleSignInLoading = true, errorMessageRes = null) }
     }
 
-    fun onGoogleIdTokenReceived(idToken: String) {
+    fun onGoogleIdTokenReceived(idToken: String, rawNonce: String) {
         viewModelScope.launch {
             runCatching {
-                authUseCases.signInWithGoogle(idToken)
+                authUseCases.signInWithGoogle(idToken, rawNonce)
             }.onSuccess { authUser ->
                 runCatching { userProfileUseCases.ensureUserProfile(authUser) }
                 _uiState.update { it.copy(isGoogleSignInLoading = false) }
