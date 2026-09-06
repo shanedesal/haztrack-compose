@@ -1,6 +1,6 @@
 # Haztrack — Developer Documentation
 
-> **Current state:** Authentication + editable user profile (with secure Cloudinary photo uploads via a self-hosted backend). The full hazard-tracking product domain has not been implemented yet. The remaining placeholder packages (`data/local`, `data/service`, `presentation/common`) are empty and reserved for future features.
+> **Current state:** Supabase authentication + editable user profile (with secure Cloudinary photo uploads via a self-hosted backend). The full hazard-tracking product domain has not been implemented yet. The remaining placeholder packages (`data/local`, `data/service`, `presentation/common`) are empty and reserved for future features.
 >
 > **Getting started:** clone, secrets, Firebase CLI, and a feature summary live in the root [`README.md`](../README.md). Contact the main developer for `google-services.json` and other secrets — do not create a separate Firebase project for local work.
 
@@ -19,7 +19,7 @@
 6. [Dependency Injection with Hilt](#6-dependency-injection-with-hilt)
 7. [Navigation](#7-navigation)
 8. [Authentication Features](#8-authentication-features)
-   - [Firebase Email Authentication](#81-firebase-email-authentication)
+    - [Email Authentication](#81-email-authentication)
    - [Google Sign-In](#82-google-sign-in)
    - [Password Reset](#83-password-reset)
    - [Session Persistence](#84-session-persistence)
@@ -46,7 +46,7 @@
 | Login | `login` | Email/password + Google Sign-In |
 | Register | `register` | Create account with email/password (first name, last name, email, password) |
 | Forgot Password | `forgot_password` | Send a password-reset email |
-| Reset Password | `reset_password/{oobCode}` | Verify a Firebase reset code and set a new password |
+| Reset Password | `reset_password/{email}` | Establish a Supabase recovery session from the deep link and set a new password |
 | Home | `home` | Post-sign-in dashboard: greets the user and links to Report/My Reports |
 | Report | `report` | Placeholder for the hazard-reporting flow (opened from the FAB or Home) |
 | My Reports | `my_reports` | Placeholder list of the signed-in user's hazard reports |
@@ -65,17 +65,18 @@
 | Language | Kotlin | 2.2.10 |
 | UI | Jetpack Compose + Material 3 | BOM 2024.09.00 |
 | Architecture | MVVM | — |
-| Navigation | Navigation Compose | 2.9.8 |
+| Navigation | Navigation Compose | 2.10.0 |
 | Dependency Injection | Hilt | 2.60.1 |
-| Authentication | Firebase Auth | BOM 34.18.0 |
+| Authentication | Supabase Auth Kotlin | 3.8.0 |
 | User profile storage | Firebase Firestore (`users/{uid}` collection) | BOM 34.18.0 |
 | Google Sign-In | AndroidX Credentials + Google Identity | 1.6.0 / 1.2.0 |
 | Coroutines | Kotlin Coroutines + Play Services adapter | 1.11.0 |
 | Image loading | Coil (`coil-compose`, `coil-network-okhttp`) | 3.6.0 |
 | Backend REST calls | Retrofit + Moshi converter | 3.0.0 |
 | JSON serialization | Moshi (`moshi-kotlin-codegen` via KSP) | 1.15.2 |
-| HTTP client | OkHttp + `logging-interceptor` (debug-only logging) | 4.12.0 |
-| Phone number validation | `libphonenumber-android` (io.michaelrocks) | 9.0.5 |
+| HTTP client | OkHttp + `logging-interceptor` (debug-only logging) | 5.5.0 |
+| Supabase HTTP client | Ktor Android | 3.5.2 |
+| Phone number validation | `libphonenumber-android` (io.michaelrocks) | 9.0.36 |
 | Logging | Timber (`DebugTree` planted in debug builds) | 5.0.1 |
 | Static Analysis | Detekt | 2.0.0-alpha.6 |
 | Build | Gradle (Kotlin DSL) | 9.3.1 wrapper |
@@ -276,7 +277,7 @@ MVVM stands for **Model – View – ViewModel**. It is a way to organise code s
 
 ### The Three Parts
 
-**Model** — the data and business rules. In this project this is the **Domain** and **Data** layers combined: `AuthUser`, `AuthRepository`, use cases, and Firebase calls.
+**Model** — the data and business rules. In this project this is the **Domain** and **Data** layers combined: `AuthUser`, `AuthRepository`, use cases, and Supabase calls.
 
 **View** — what the user sees. In this project the View is every Compose `@Composable` function (the `*Screen.kt` files). The composable's only job is to **draw** the UI and **report** user events (button taps, text input) upward. It never makes decisions.
 
@@ -314,12 +315,12 @@ AuthRepositoryImpl (Data)
         │
         ▼
 AuthRemoteDataSource (Data)
-  calls Firebase Auth SDK
-  returns FirebaseUser
+    calls Supabase Auth SDK
+    returns Supabase UserInfo
         │
         ▲
 AuthRepositoryImpl
-  converts FirebaseUser → AuthUser (domain model)
+    converts Supabase UserInfo → AuthUser (domain model)
   returns AuthUser
         │
         ▲
@@ -343,8 +344,8 @@ HaztrackNavHost
 
 ### Why Is This Useful?
 
-- **Separation of concerns**: Firebase could be swapped for another provider by only changing `AuthRemoteDataSource` — nothing else needs to change.
-- **Testability**: `LoginViewModel` can be unit-tested by providing a fake `AuthUseCases` — no emulator, no Firebase, no Android needed.
+- **Separation of concerns**: Supabase could be swapped for another provider by only changing `AuthRemoteDataSource` — nothing else needs to change.
+- **Testability**: `LoginViewModel` can be unit-tested by providing a fake `AuthUseCases` — no emulator, no Supabase, no Android needed.
 - **Predictability**: You always know where state lives (ViewModel), where UI decisions are made (ViewModel), and where Android-specific concerns go (Screen / `GoogleAuthClient`).
 
 ---
@@ -355,7 +356,7 @@ HaztrackNavHost
 
 **Location:** `app/src/main/java/com/danger/haztrack/data/`
 
-The data layer is the only place in the app that knows about external services (Firebase, future REST APIs, Room database). Nothing outside this layer imports Firebase classes.
+The data layer is the only place in the app that knows about external services (Supabase, Firebase Firestore, future REST APIs, Room database). Nothing outside this layer imports provider SDK classes.
 
 #### `AuthRemoteDataSource`
 
@@ -363,16 +364,20 @@ The data layer is the only place in the app that knows about external services (
 data/remote/api/AuthRemoteDataSource.kt
 ```
 
-A `@Singleton` class injected with `FirebaseAuth`. It performs raw Firebase operations and returns `FirebaseUser` objects. All Firebase calls are `suspend` functions using `.await()` (the coroutines-play-services adapter that converts Firebase `Task<T>` into a coroutine you can `await`).
+A `@Singleton` class injected with Supabase's `Auth` client. It performs raw Supabase Auth operations and returns `UserInfo` objects. Email sign-in and registration use the Supabase `Email` provider; Google sign-in exchanges the Credential Manager ID token and raw nonce through Supabase's `IDToken` provider.
 
 ```kotlin
-suspend fun signInWithEmail(email: String, password: String): FirebaseUser {
-    return firebaseAuth.signInWithEmailAndPassword(email, password).await().user
-        ?: error("Firebase did not return a user after email sign-in")
+suspend fun signInWithEmail(email: String, password: String): UserInfo {
+    auth.signInWith(Email) {
+        this.email = email
+        this.password = password
+    }
+    return auth.currentUserOrNull()
+        ?: error("Supabase did not return a user after email sign-in")
 }
 ```
 
-If Firebase returns `null` for the user (which should not happen under normal conditions), the `?:` Elvis operator throws an `IllegalStateException` immediately rather than letting a `NullPointerException` crash somewhere deeper.
+If Supabase returns `null` for the user (which should not happen under normal conditions), the `?:` Elvis operator throws an `IllegalStateException` immediately rather than letting a `NullPointerException` crash somewhere deeper.
 
 #### `AuthRepositoryImpl`
 
@@ -382,11 +387,11 @@ data/repository/auth/AuthRepositoryImpl.kt
 
 Implements the `AuthRepository` **interface** defined in the domain layer. Its job is:
 1. Delegate every call to `AuthRemoteDataSource`.
-2. Convert `FirebaseUser` (a Firebase type) into `AuthUser` (the app's own domain model) so the domain layer stays independent of Firebase.
+2. Convert Supabase `UserInfo` into `AuthUser` (the app's own domain model) so the domain layer stays independent of Supabase.
 
 ```kotlin
-private fun FirebaseUser.toAuthUser(): AuthUser {
-    val isGoogleAccount = providerData.any { it.providerId == GoogleAuthProvider.PROVIDER_ID }
+private fun UserInfo.toAuthUser(): AuthUser {
+    val isGoogleAccount = identities?.any { it.provider == "google" } == true
     return AuthUser(
         id = uid,
         email = email,
@@ -398,9 +403,9 @@ private fun FirebaseUser.toAuthUser(): AuthUser {
 }
 ```
 
-This conversion is a private **extension function** on `FirebaseUser`. Extension functions in Kotlin let you add methods to classes you don't own — here it reads as "convert this `FirebaseUser` into an `AuthUser`".
+This conversion is a private **extension function** on `UserInfo`. Extension functions in Kotlin let you add methods to classes you don't own — here it reads as "convert this Supabase user into an `AuthUser`".
 
-**`isGoogleAccount`:** derived from `FirebaseUser.getProviderData()` — `true` when one of the linked providers is `GoogleAuthProvider.PROVIDER_ID` (`"google.com"`). The Profile screen uses this to show a "Signed in with Google" badge.
+**`isGoogleAccount`:** derived from Supabase identity data — `true` when one of the identities has provider `"google"`. The Profile screen uses this to show a "Signed in with Google" badge.
 
 #### `UserRemoteDataSource` and `UserProfileRepositoryImpl`
 
@@ -442,24 +447,22 @@ Profile-picture (and, later, hazard-report) uploads go through our own backend r
 ```kotlin
 @Provides
 @Singleton
-fun provideAuthInterceptor(firebaseAuth: FirebaseAuth): Interceptor {
+fun provideAuthInterceptor(auth: Auth): Interceptor {
     return Interceptor { chain ->
-        val idToken = firebaseAuth.currentUser?.let { user ->
-            runCatching { Tasks.await(user.getIdToken(false)).token }.getOrNull()
-        }
+        val accessToken = auth.currentAccessTokenOrNull()
         val request = chain.request().newBuilder()
-            .apply { idToken?.let { addHeader("Authorization", "Bearer $it") } }
+            .apply { accessToken?.let { addHeader("Authorization", "Bearer $it") } }
             .build()
         chain.proceed(request)
     }
 }
 ```
 
-Every request to our backend automatically carries the signed-in user's Firebase ID token — callers never attach it manually. Since `Interceptor.intercept` is synchronous (it runs on OkHttp's own dispatcher thread, not a coroutine), fetching the token blocks on `Tasks.await(...)` rather than using `.await()`; this is the standard way to bridge a GMS `Task` into non-suspending code. Request/response bodies are only logged (via `HttpLoggingInterceptor` at `BASIC`) when `BuildConfig.DEBUG` is true, so tokens and image bytes are never written to logcat in a release build. Those OkHttp lines use tag `OkHttp`. Feature-level upload traces (`UploadImage` / `DeleteUploadedImage`, including `mimeType` and `byteCount` — never tokens, image bytes, or the uid-bearing `publicId`) are logged with Timber from `ImageUploadRemoteDataSource` and only reach Logcat in debug, because `HaztrackApplication` plants `Timber.DebugTree()` when `BuildConfig.DEBUG` is true.
+Every request to our backend automatically carries the signed-in user's Supabase access token — callers never attach it manually. Supabase keeps the token cached and refreshes it in the background, so the interceptor reads it synchronously without Firebase Task bridging. Request/response bodies are only logged (via `HttpLoggingInterceptor` at `BASIC`) when `BuildConfig.DEBUG` is true, so tokens and image bytes are never written to logcat in a release build. Those OkHttp lines use tag `OkHttp`. Feature-level upload traces (`UploadImage` / `DeleteUploadedImage`, including `mimeType` and `byteCount` — never tokens, image bytes, or the uid-bearing `publicId`) are logged with Timber from `ImageUploadRemoteDataSource` and only reach Logcat in debug, because `HaztrackApplication` plants `Timber.DebugTree()` when `BuildConfig.DEBUG` is true.
 
 The default backend URL is `http://10.0.2.2:4000/api/v1/` (emulator → host). Android 9+ rejects that cleartext call unless a **debug-only** `networkSecurityConfig` allows it (`app/src/debug/`); release APKs do not ship that exception.
 
-`UploadApi` is a small Retrofit interface (`@Multipart @POST("uploads/{context}")`, `@DELETE("uploads/{context}")`). `ImageUploadRemoteDataSource` builds the `MultipartBody.Part` from the raw bytes and calls it, keeping Retrofit/OkHttp types out of the repository layer — the same pattern `AuthRemoteDataSource` uses to keep `FirebaseUser` out of `AuthRepository`. `ImageUploadRepositoryImpl` maps the response DTO to the domain `UploadedImage` model and treats `delete` as best-effort (a failed cleanup call is logged, not thrown, so removing a photo locally never gets blocked by a flaky network).
+`UploadApi` is a small Retrofit interface (`@Multipart @POST("uploads/{context}")`, `@DELETE("uploads/{context}")`). `ImageUploadRemoteDataSource` builds the `MultipartBody.Part` from the raw bytes and calls it, keeping Retrofit/OkHttp types out of the repository layer — the same pattern `AuthRemoteDataSource` uses to keep `UserInfo` out of `AuthRepository`. `ImageUploadRepositoryImpl` maps the response DTO to the domain `UploadedImage` model and treats `delete` as best-effort (a failed cleanup call is logged, not thrown, so removing a photo locally never gets blocked by a flaky network).
 
 This same `Retrofit`/`OkHttpClient` pair is meant to be reused by any future REST endpoint on our own backend (e.g. hazard reports) instead of each feature building its own HTTP client.
 
@@ -594,9 +597,12 @@ interface AuthRepository {
     fun getCurrentUser(): AuthUser?
     suspend fun signInWithEmail(email: String, password: String): AuthUser
     suspend fun signUpWithEmail(firstName: String, lastName: String, email: String, password: String): AuthUser
-    suspend fun signInWithGoogle(idToken: String): AuthUser
+    suspend fun signInWithGoogle(idToken: String, rawNonce: String): AuthUser
     suspend fun sendPasswordResetEmail(email: String)
-    fun signOut()
+    suspend fun signOut()
+    suspend fun awaitSessionReady()
+    suspend fun establishSessionFromUrl(url: String): AuthUser
+    suspend fun updatePassword(newPassword: String)
 }
 ```
 
@@ -731,15 +737,11 @@ class MainActivity : ComponentActivity()
 
 Modules tell Hilt how to create objects it cannot create automatically (e.g., singletons from third-party SDKs).
 
-`FirebaseModule` uses `@Provides` (for constructing a concrete object):
+`SupabaseModule` uses `@Provides` (for constructing the Supabase client and Auth plugin), while `FirebaseModule` still provides Firestore for profile storage:
 ```kotlin
 @Module
 @InstallIn(SingletonComponent::class)
 object FirebaseModule {
-    @Provides
-    @Singleton
-    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
-
     @Provides
     @Singleton
     fun provideFirebaseFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
@@ -769,7 +771,7 @@ Classes annotated with `@Inject constructor(...)` have their dependencies provid
 ```kotlin
 @Singleton
 class AuthRemoteDataSource @Inject constructor(
-    private val firebaseAuth: FirebaseAuth, // Hilt looks this up from FirebaseModule
+    private val auth: Auth, // Hilt looks this up from SupabaseModule
 )
 ```
 
@@ -790,7 +792,7 @@ val viewModel: LoginViewModel = hiltViewModel()
 ### The Full DI Chain
 
 ```
-FirebaseAuth (from FirebaseModule)
+SupabaseClient/Auth (from SupabaseModule)
     → injected into AuthRemoteDataSource
         → injected into AuthRepositoryImpl
             → bound as AuthRepository (from RepositoryModule)
@@ -806,7 +808,7 @@ FirebaseFirestore (from FirebaseModule)
                     → injected into UserProfileUseCases
                         → injected into each ViewModel (alongside AuthUseCases)
 
-Retrofit/OkHttp/Moshi (from NetworkModule, using BuildConfig.BACKEND_BASE_URL + FirebaseAuth)
+Retrofit/OkHttp/Moshi (from NetworkModule, using BuildConfig.BACKEND_BASE_URL + Supabase Auth)
     → provides UploadApi
         → injected into ImageUploadRemoteDataSource
             → injected into ImageUploadRepositoryImpl
@@ -839,7 +841,7 @@ sealed class HaztrackDestination(val route: String) {
     data object Notifications: HaztrackDestination("notifications")
     data object Settings     : HaztrackDestination("settings")
     data object Profile      : HaztrackDestination("profile")
-    // ResetPassword takes an `oobCode` argument — see HaztrackDestination.kt
+    // ResetPassword takes an encoded recovery email argument — see HaztrackDestination.kt
 }
 ```
 
@@ -881,7 +883,7 @@ class SessionViewModel @Inject constructor(authUseCases: AuthUseCases) : ViewMod
 }
 ```
 
-On every cold launch, `SessionViewModel` checks whether Firebase already has a signed-in user. If yes, the app starts at `Home` and the user never sees the Login screen. This state check is synchronous because `FirebaseAuth.currentUser` reflects the persisted session without a network call.
+On every cold launch, `SessionViewModel` first awaits Supabase Auth initialization, then checks whether a signed-in user exists. If yes, the app starts at `Home`; otherwise it starts at `Login`. Waiting for initialization avoids choosing the wrong destination before the persisted session has been restored.
 
 ### `HaztrackNavHost` — The Navigation Graph
 
@@ -912,22 +914,22 @@ navigate(HaztrackDestination.Home.route) {
 
 ## 8. Authentication Features
 
-### 8.1 Firebase Email Authentication
+### 8.1 Email Authentication
 
-**Flow:** `LoginScreen` → `LoginViewModel` → `SignInWithEmailUseCase` → `AuthRepositoryImpl` → `AuthRemoteDataSource` → Firebase Auth SDK.
+**Flow:** `LoginScreen` → `LoginViewModel` → `SignInWithEmailUseCase` → `AuthRepositoryImpl` → `AuthRemoteDataSource` → Supabase Auth SDK.
 
 1. The user types an email and password. Both fields must be non-blank for the "Sign In" button to be enabled (`isSignInEnabled` in `LoginUiState`).
 2. On tap, `LoginViewModel.onSignInClick()` is called.
 3. The ViewModel sets `isLoading = true` in the state (the button shows a spinner, keyboard input is disabled).
 4. `SignInWithEmailUseCase` validates the email format and minimum password length before the network call is made.
-5. `AuthRemoteDataSource` calls `firebaseAuth.signInWithEmailAndPassword(email, password).await()`.
+5. `AuthRemoteDataSource` calls Supabase `auth.signInWith(Email)`.
 6. On success, the ViewModel sends `LoginEvent.NavigateToHome` through the `Channel`.
 7. On failure, the exception is mapped to a string resource by `AuthErrorMapper` and displayed below the form.
 
 **Registration** follows the same path but also:
 - Requires **First Name** and **Last Name** fields in addition to email/password, and a "Confirm Password" field. All fields must be non-blank for the "Create account" button to be enabled (`isSignUpEnabled` in `RegisterUiState`).
 - The ViewModel checks for a password mismatch **before** calling the use case, so no network call is made if passwords differ.
-- `SignUpWithEmailUseCase` validates that first/last name are non-blank via `AuthInputValidation.name(...)`, then `AuthRepositoryImpl.signUpWithEmail` combines them into a single string and calls `FirebaseUser.updateProfile(UserProfileChangeRequest)` right after `createUserWithEmailAndPassword`, so the account's Firebase `displayName` is populated immediately (previously, email/password accounts were created with no name at all).
+- `SignUpWithEmailUseCase` validates that first/last name are non-blank via `AuthInputValidation.name(...)`, then passes the combined display name to Supabase user metadata during `auth.signUpWith(Email)`.
 - Once the `AuthUser` comes back, `RegisterViewModel` calls `UserProfileUseCases.saveUserProfile(...)` to write the explicit first/last name (plus email and photo URL) to the user's Firestore profile document — see [8.6](#86-user-profile). This write is wrapped in its own `runCatching` and doesn't block navigation to Home if it fails, since `EnsureUserProfileUseCase` will retry/backfill it later.
 
 ### 8.2 Google Sign-In
@@ -966,9 +968,8 @@ LoginViewModel.onGoogleIdTokenReceived(idToken)
   calls authUseCases.signInWithGoogle(idToken)
         │
 SignInWithGoogleUseCase → AuthRepositoryImpl → AuthRemoteDataSource
-  GoogleAuthProvider.getCredential(idToken, null)
-  firebaseAuth.signInWithCredential(firebaseCredential).await()
-  Returns FirebaseUser → AuthUser
+    auth.signInWith(IDToken) with the Google ID token and raw nonce
+    Returns Supabase UserInfo → AuthUser
         │
 LoginViewModel calls userProfileUseCases.ensureUserProfile(authUser)
   Creates the user's Firestore profile document on their first Google sign-in
@@ -979,31 +980,27 @@ LoginViewModel sends LoginEvent.NavigateToHome
 LoginScreen navigates to Home
 ```
 
-**`R.string.default_web_client_id`** is a string resource automatically generated by the `google-services` Gradle plugin from `google-services.json`. It contains the OAuth 2.0 Web Client ID registered in the Firebase Console. You never write this value manually.
+**`R.string.default_web_client_id`** is a string resource automatically generated by the `google-services` Gradle plugin from `google-services.json`. It supplies the Google OAuth client ID to Credential Manager; Supabase validates the resulting ID token and raw nonce.
 
 **Cancellation is not an error.** If the user dismisses the Google account picker without selecting an account, a `GetCredentialCancellationException` is thrown. `LoginViewModel.onGoogleSignInFailed` explicitly checks for this and sets `errorMessageRes = null` — no error is shown to the user because they intentionally cancelled.
 
 ### 8.3 Password Reset
 
-**Flow:** `ForgotPasswordScreen` → `ForgotPasswordViewModel` → `SendPasswordResetEmailUseCase` → `AuthRepositoryImpl` → `AuthRemoteDataSource` → `firebaseAuth.sendPasswordResetEmail(email, actionCodeSettings).await()`.
+**Flow:** `ForgotPasswordScreen` → `ForgotPasswordViewModel` → `SendPasswordResetEmailUseCase` → `AuthRepositoryImpl` → `AuthRemoteDataSource` → `auth.resetPasswordForEmail(email, redirectUrl)`.
 
 1. The user enters their email and taps "Send reset link".
 2. `SendPasswordResetEmailUseCase` validates the email format.
-3. Firebase sends a password-reset email to the address.
+3. Supabase sends a password-reset email to the address.
 4. On success, `ForgotPasswordUiState.isEmailSent` is set to `true`.
 5. The composable replaces the form with a success message and a "Back to sign in" button.
 
-**Note:** Firebase does not reveal whether the email address exists in the system — it always responds with success to prevent email enumeration attacks. This is expected Firebase behaviour.
+**Note:** The reset request is handled by Supabase Auth. The app treats a successful request as the email-sent state without exposing account-existence details.
 
-Password-reset emails use Firebase's in-app action-link mode. The generated hosting link targets
-`<PROJECT_ID>.firebaseapp.com/__/auth/links`; `MainActivity` extracts the nested action URL and
-passes its `oobCode` to the reset-password navigation destination. Android App Links must be
-configured and verified for that Firebase Hosting domain. The reset form then verifies the code
-with Firebase before allowing the user to choose a new password. If Haztrack is not installed,
-the Firebase Authentication password-reset email template must route to the custom action URL
-`https://<PROJECT_ID>.firebaseapp.com/resetPassword`, served by
-`public/resetPassword/index.html`. The Firebase Web SDK then provides the same verify-and-confirm
-flow in a browser.
+Password-reset emails use Supabase's recovery redirect to
+`com.danger.haztrack://reset-password`. `MainActivity` waits for Supabase initialization, imports
+the session from the received recovery URL, and navigates with the recovered email. The reset form
+then calls `auth.updateUser { password = ... }`; it no longer verifies or confirms a Firebase
+`oobCode`.
 
 The Android App Links association is hosted at
 `public/.well-known/assetlinks.json` and deployed with:
@@ -1028,17 +1025,17 @@ source remains the continue URL carried inside Firebase's action link.
 
 ### 8.4 Session Persistence
 
-Firebase Auth persists the signed-in user to the device's local storage automatically. On the next app launch, `FirebaseAuth.currentUser` is non-null if the session is still valid (tokens not expired, account not deleted).
+Supabase Auth persists the signed-in session locally. On the next app launch, `SessionViewModel` awaits initialization before checking `getCurrentUser()`, so navigation reflects the restored session rather than a transient null state.
 
 `SessionViewModel` reads `getCurrentUser()` synchronously at startup and sets `startDestination` to either `"home"` or `"login"`. Because this happens before the first frame is drawn, there is no flash of the wrong screen.
 
 ### 8.5 Sign Out
 
 Sign-out must clear two things:
-1. **Firebase session** — `firebaseAuth.signOut()` clears the local token.
+1. **Supabase session** — `auth.signOut()` clears the local session and access token.
 2. **Credential Manager state** — `CredentialManager.clearCredentialState()` removes the saved Google credential so the account picker is shown again on the next Google Sign-In attempt.
 
-Sign Out lives on the **Settings** tab (not Home). `SettingsViewModel.onSignOutClick()` calls `authUseCases.signOut()` (Firebase only). `SettingsScreen` itself handles the Credential Manager part via `GoogleAuthClient.signOut(context)` because, again, Credential Manager needs a Context.
+Sign Out lives on the **Settings** tab (not Home). `SettingsViewModel.onSignOutClick()` calls the suspendable `authUseCases.signOut()`. `SettingsScreen` also clears Credential Manager state via `GoogleAuthClient.signOut(context)` because Credential Manager needs a Context.
 
 After sign-out, `SettingsEvent.NavigateToLogin` is sent and `HaztrackNavHost` navigates to Login with `popUpTo(0) { inclusive = true }` — this clears the **entire** back stack, so pressing back after sign-out exits the app.
 

@@ -2,6 +2,22 @@
 
 All notable feature additions, updates, bug fixes, and functionality changes are recorded here.
 
+## 2026-09-06
+
+### Fixed
+
+- **Commit `f0efa9a0bda0e12e5f8b4f5ca56555d8e3c4fcd8` (2026-09-06 08:39:28 +0800):** Fixed authentication startup and password recovery by waiting for the auth session before choosing the start destination, importing the recovery session from the deep link, retrieving the authenticated user, and using the renamed `awaitSessionReady` use case consistently. Added debug logging for recovery links and signup failures, and registered the Retrofit `UserApi` provider in Hilt.
+
+## 2026-09-05
+
+### Added
+
+- **Commit `697f44828cf7060156c1eeb2fc6bf5492674c40e` (2026-09-05 08:46:24 +0800):** Migrated app authentication from Firebase Auth to Supabase Auth. Added Supabase client/auth DI, Supabase URL and anonymous-key BuildConfig values, Google ID-token sign-in with a raw nonce, Supabase access-token attachment for backend requests, and session initialization before navigation.
+
+### Updated
+
+- **Commit `697f44828cf7060156c1eeb2fc6bf5492674c40e:** Changed password recovery to establish a Supabase session from the app deep link and update the authenticated user's password, replacing Firebase reset-code verification and confirmation. Sign-out is now suspendable, and the auth error mapping, navigation state, and dependency versions were updated for the migration. At this commit, Supabase email registration and reset-password support were still marked as incomplete in the commit message.
+
 ## 2026-09-01
 
 ### Documentation
