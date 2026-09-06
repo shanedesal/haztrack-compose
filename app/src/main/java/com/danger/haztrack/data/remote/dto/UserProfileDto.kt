@@ -1,13 +1,13 @@
 package com.danger.haztrack.data.remote.dto
 
+import com.squareup.moshi.JsonClass
+
 /**
- * Firestore representation of a `users/{uid}` document. All fields have defaults so the
- * Firestore SDK can construct instances via reflection when deserializing (`toObject`).
- *
- * `photoSource`/`gender` are stored as the enum's `name` (or `null`/blank) rather than an
- * ordinal, so the stored value stays readable and stable if enum entries are reordered later.
- * `dateOfBirth` is an ISO-8601 `yyyy-MM-dd` string.
+ * Backend representation of a `profiles` row. Field names here are camelCase to match the
+ * backend's JSON contract exactly (see the profile-endpoints spec) — no @Json(name=...)
+ * remapping needed since the backend already returns/accepts camelCase keys.
  */
+@JsonClass(generateAdapter = true)
 data class UserProfileDto(
     val firstName: String = "",
     val lastName: String = "",

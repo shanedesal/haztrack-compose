@@ -54,15 +54,27 @@ class ProfileViewModel @Inject constructor(
             it.copy(email = user.email, photoUrl = user.photoUrl, isGoogleAccount = user.isGoogleAccount)
         }
 
+        observeProfile()
+
         viewModelScope.launch {
-            // ensureUserProfile self-heals: it creates the Firestore document on the fly for
-            // Google/legacy accounts or a failed registration write, instead of showing blanks.
+            // ensureUserProfile self-heals: creates the profile row on the fly for Google/legacy
+            // accounts or a failed registration write. observeProfile()'s collector below picks up
+            // the result once it lands in the shared cache — no direct handling needed here.
             runCatching { userProfileUseCases.ensureUserProfile(user) }
-                .onSuccess { profile ->
-                    savedProfile = profile
+                .onFailure { _uiState.update { state -> state.copy(isLoading = false) } }
+        }
+    }
+
+    private fun observeProfile() {
+        viewModelScope.launch {
+            userProfileUseCases.observeUserProfile().collect { profile ->
+                if (profile == null) return@collect
+                savedProfile = profile
+                // Don't stomp on an in-progress edit if the user is mid-form.
+                if (!_uiState.value.isEditing) {
                     _uiState.update { it.copyFromProfile(profile, isLoading = false) }
                 }
-                .onFailure { _uiState.update { state -> state.copy(isLoading = false) } }
+            }
         }
     }
 

@@ -28,35 +28,40 @@ class SettingsViewModel @Inject constructor(
     val events: Flow<SettingsEvent> = _events.receiveAsFlow()
 
     init {
-        loadProfile()
+        val user = authUseCases.getCurrentUser()
+        if (user != null){
+            _uiState.update {
+                it.copy(email = user.email, photoUrl = user.photoUrl)
+            }
+            observeProfile()
+            viewModelScope.launch {
+                runCatching { userProfileUseCases.ensureUserProfile(user) }
+            }
+        }
     }
 
-    private fun loadProfile() {
-        val user = authUseCases.getCurrentUser() ?: return
-        _uiState.update { it.copy(email = user.email, photoUrl = user.photoUrl) }
-
+    private fun observeProfile() {
         viewModelScope.launch {
-            // Every profile read comes from Firestore (not Firebase Auth's displayName/photo),
-            // so an edit made on the Profile screen is reflected here immediately.
-            runCatching { userProfileUseCases.ensureUserProfile(user) }
-                .onSuccess { profile ->
-                    val fullName = listOf(profile.firstName, profile.lastName)
-                        .filter(String::isNotBlank)
-                        .joinToString(separator = " ")
-                    _uiState.update {
-                        it.copy(
-                            displayName = fullName.takeIf(String::isNotBlank),
-                            email = profile.email ?: user.email,
-                            photoUrl = profile.photoUrl ?: user.photoUrl,
-                        )
-                    }
+            userProfileUseCases.observeUserProfile().collect { profile ->
+                if (profile == null) return@collect
+                val fullName = listOf(profile.firstName, profile.lastName)
+                    .filter(String::isNotBlank)
+                    .joinToString(separator = " ")
+                _uiState.update {
+                    it.copy(
+                        displayName = fullName.takeIf(String::isNotBlank),
+                        email = profile.email ?: it.email,
+                        photoUrl = profile.photoUrl ?: it.photoUrl,
+                    )
                 }
+            }
         }
     }
 
     fun onSignOutClick() {
         viewModelScope.launch {
             authUseCases.signOut()
+            userProfileUseCases.clearCachedUserProfile()
             _events.send(SettingsEvent.NavigateToLogin)
         }
     }

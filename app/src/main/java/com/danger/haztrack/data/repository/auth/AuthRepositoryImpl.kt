@@ -3,8 +3,6 @@ package com.danger.haztrack.data.repository.auth
 import com.danger.haztrack.data.remote.api.AuthRemoteDataSource
 import com.danger.haztrack.domain.model.AuthUser
 import com.danger.haztrack.domain.repository.auth.AuthRepository
-import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.auth.GoogleAuthProvider
 import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.serialization.json.JsonPrimitive
 import timber.log.Timber
@@ -56,7 +54,9 @@ class AuthRepositoryImpl @Inject constructor(
 
     private fun UserInfo.toAuthUser(): AuthUser {
         val displayName = (userMetadata?.get("display_name") as? JsonPrimitive)?.content
+            ?: (userMetadata?.get("full_name") as? JsonPrimitive)?.content
         val photoUrl = (userMetadata?.get("photo_url") as? JsonPrimitive)?.content
+            ?: (userMetadata?.get("avatar_url") as? JsonPrimitive)?.content
         val isGoogleAccount = identities?.any { it.provider == "google"} == true
 
         return AuthUser(

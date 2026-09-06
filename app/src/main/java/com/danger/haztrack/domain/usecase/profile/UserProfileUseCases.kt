@@ -6,4 +6,6 @@ data class UserProfileUseCases @Inject constructor(
     val getUserProfile: GetUserProfileUseCase,
     val saveUserProfile: SaveUserProfileUseCase,
     val ensureUserProfile: EnsureUserProfileUseCase,
+    val clearCachedUserProfile: ClearCachedUserProfileUseCase,
+    val observeUserProfile: ObserveUserProfileUseCase
 )

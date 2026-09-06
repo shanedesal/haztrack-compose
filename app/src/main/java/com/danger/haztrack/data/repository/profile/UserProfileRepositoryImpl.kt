@@ -6,7 +6,12 @@ import com.danger.haztrack.domain.model.Gender
 import com.danger.haztrack.domain.model.PhotoSource
 import com.danger.haztrack.domain.model.UserProfile
 import com.danger.haztrack.domain.repository.profile.UserProfileRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import retrofit2.HttpException
 import timber.log.Timber
+import java.net.HttpURLConnection
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,15 +20,30 @@ class UserProfileRepositoryImpl @Inject constructor(
     private val userRemoteDataSource: UserRemoteDataSource,
 ) : UserProfileRepository {
 
+    private val _userProfile = MutableStateFlow<UserProfile?>(null)
+    override val userProfile: StateFlow<UserProfile?> = _userProfile.asStateFlow()
+
     override suspend fun getUserProfile(userId: String): UserProfile? {
-        return runCatching { userRemoteDataSource.getUserProfile(userId) }
-            .onFailure { Timber.e(it, "GetUserProfile failed") }
+        return runCatching { userRemoteDataSource.getUserProfile() }
+            .onFailure { throwable ->
+                if(throwable !is HttpException || throwable.code() != HttpURLConnection.HTTP_NOT_FOUND) {
+                    Timber.e(throwable, "GetUserProfile failed")
+                }
+            }
             .getOrNull()
             ?.toUserProfile(userId)
+            .also { _userProfile.value = it }
     }
 
     override suspend fun saveUserProfile(profile: UserProfile) {
-        userRemoteDataSource.saveUserProfile(profile.id, profile.toDto())
+        val dto = profile.toDto()
+        Timber.d("saveUserProfile request: photoUrl=${dto.photoUrl}, photoSource=${dto.photoSource}") // TEMP
+        val saved = userRemoteDataSource.saveUserProfile(dto)
+        _userProfile.value = saved.toUserProfile(profile.id)
+    }
+
+    override fun clearCachedProfile() {
+        _userProfile.value = null
     }
 
     private fun UserProfileDto.toUserProfile(userId: String): UserProfile {
