@@ -55,9 +55,9 @@ class AuthRemoteDataSource @Inject constructor(
     }
 
     suspend fun establishSessionFromUrl(url: String): UserInfo {
-        auth.parseSessionFromUrl(url)
-        return auth.currentUserOrNull()
-            ?: error("Supabase did not return a user after processing the recovery link")
+        val session = auth.parseSessionFromUrl(url)
+        auth.importSession(session)
+        return auth.retrieveUser(session.accessToken)
     }
 
     suspend fun updatePassword(newPassword: String) {

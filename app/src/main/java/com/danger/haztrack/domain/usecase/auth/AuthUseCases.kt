@@ -11,5 +11,5 @@ data class AuthUseCases @Inject constructor(
     val signOut: SignOutUseCase,
     val establishSessionFromUrl: EstablishSessionFromUrlUseCase,
     val updatePassword: UpdatePasswordUseCase,
-    val awaitSessionReadyUseCase: AwaitSessionReadyUseCase
+    val awaitSessionReady: AwaitSessionReadyUseCase
 )

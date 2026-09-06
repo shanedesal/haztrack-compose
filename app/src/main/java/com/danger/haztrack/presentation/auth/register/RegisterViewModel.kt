@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
@@ -95,6 +96,7 @@ class RegisterViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false) }
                 _events.send(RegisterEvent.NavigateToHome)
             }.onFailure { throwable ->
+                Timber.e(throwable, "SignUpwithEmail failed")
                 _uiState.update {
                     it.copy(isLoading = false, errorMessageRes = throwable.toAuthErrorMessageRes())
                 }

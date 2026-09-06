@@ -49,8 +49,11 @@ class MainActivity : ComponentActivity() {
         val data = intent?.data ?: return
         if (data.scheme != "com.danger.haztrack" || data.host != "reset-password") return
 
+        Timber.d("Recovery deep link received: $data")
+
         lifecycleScope.launch {
             runCatching {
+                authUseCases.awaitSessionReady()
                 authUseCases.establishSessionFromUrl(data.toString())
             }.onSuccess { authUser ->
                 recoveryEmailFlow.value = authUser.email.orEmpty()

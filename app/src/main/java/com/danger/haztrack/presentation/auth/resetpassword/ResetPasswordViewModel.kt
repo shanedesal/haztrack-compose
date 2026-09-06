@@ -18,7 +18,6 @@ class ResetPasswordViewModel @Inject constructor(
     private val authUseCases: AuthUseCases,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
-    private val oobCode: String = checkNotNull(savedStateHandle["oobCode"])
     private val _uiState = MutableStateFlow(
         ResetPasswordUiState(email = savedStateHandle["email"])
     )

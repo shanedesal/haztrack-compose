@@ -24,7 +24,7 @@ class SessionViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            authUseCases.awaitSessionReadyUseCase()
+            authUseCases.awaitSessionReady()
             _startDestination.value = if (authUseCases.getCurrentUser() != null) {
                 HaztrackDestination.Home.route
             } else {

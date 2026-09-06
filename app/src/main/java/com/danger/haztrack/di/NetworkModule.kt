@@ -2,6 +2,7 @@ package com.danger.haztrack.di
 
 import com.danger.haztrack.BuildConfig
 import com.danger.haztrack.data.remote.api.UploadApi
+import com.danger.haztrack.data.remote.api.UserApi
 import com.squareup.moshi.Moshi
 import dagger.Module
 import dagger.Provides
@@ -78,4 +79,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideUploadApi(retrofit: Retrofit): UploadApi = retrofit.create(UploadApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideUserApi(retrofit: Retrofit): UserApi = retrofit.create(UserApi::class.java)
 }
